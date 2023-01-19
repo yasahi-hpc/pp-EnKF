@@ -24,4 +24,6 @@ ENV PATH=${CMAKE_DIR}/bin:$PATH
 
 WORKDIR /work
 ENV FFTWDIR "/usr"
+RUN ls
+RUN which cmake
 CMD ["bash"]
