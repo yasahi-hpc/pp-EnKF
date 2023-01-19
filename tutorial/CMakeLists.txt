@@ -1,1 +1,2 @@
 add_subdirectory(01_hello_world)
+add_subdirectory(02_hello_world_nvexec)
