@@ -30,7 +30,9 @@ On Wisteria, we need to load following modules
 1. Environment
 ```bash
 module purge
-spack load gcc@11.2.0 cmake@3.23.1%gcc@11.2.0
+spack_env
+spack load gcc@11.3.0
+spack load cmake@3.24.3
 module load nvhpc/22.11
 ```
 
