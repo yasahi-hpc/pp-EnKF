@@ -134,7 +134,7 @@ void initialize(const Config& conf,
   auto initializer = stdexec::just()
                    | exec::on( scheduler, 
                                stdexec::bulk(n, init_functor(conf, x, y, z, u, un)) ); 
-  stdexec::sync_wait(initializer);
+  stdexec::sync_wait( std::move(initializer) );
 }
 
 template <class Scheduler, typename RealType>
@@ -151,7 +151,7 @@ void solve(const Config& conf,
               | exec::on( scheduler, 
                           stdexec::bulk(n, heat3d_functor(conf, u, un)) )
               | stdexec::then( [&]{ std::swap(u, un); } );
-    stdexec::sync_wait(step);
+    stdexec::sync_wait( std::move(step) );
   }
 }
 
@@ -172,7 +172,7 @@ void finalize(const Config& conf,
 
   auto analytical_solution = stdexec::just()
                  | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, z, un)) );
-  stdexec::sync_wait(analytical_solution);
+  stdexec::sync_wait( std::move(analytical_solution) );
 
   // Check errors
   // un: analytical, u: numerical solutions
