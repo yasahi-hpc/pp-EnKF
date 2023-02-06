@@ -10,3 +10,6 @@ endif()
 
 # Tutorial
 add_subdirectory(tutorial)
+
+# Mini-apps
+add_subdirectory(mini-apps)
