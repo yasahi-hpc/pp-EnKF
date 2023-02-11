@@ -1,11 +1,10 @@
 #ifndef __FUNCTORS_HPP__
 #define __FUNCTORS_HPP__
 
-#include <iostream>
-#include "config.hpp"
+#include "../config.hpp"
+#include "../types.hpp"
 #include "grid.hpp"
 #include "variable.hpp"
-#include "types.hpp"
 
 template <typename RealType>
 struct init_functor{

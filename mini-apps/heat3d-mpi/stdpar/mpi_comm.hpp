@@ -5,8 +5,8 @@
 #include <vector>
 #include <complex>
 #include <mpi.h>
-#include "utils.hpp"
-#include "types.hpp"
+#include "../types.hpp"
+#include "../utils.hpp"
 #include "functors.hpp"
 
 constexpr int UP     = 0;
@@ -84,6 +84,11 @@ public:
   RealView2D right() {
     return RealView2D(right_.data(), extents_);
   }
+
+  Vector left_vector() const { return left_; }
+  Vector right_vector() const { return right_; }
+  Vector& left_vector() { return left_; }
+  Vector& right_vector() { return right_; }
 
   std::size_t size() const { return size_; }
   int left_rank() const { return left_rank_; }
@@ -279,14 +284,13 @@ private:
 
       MPI_Waitall( 4, request, status );
     } else {
-      const std::size_t n = recv.size();
-      std::for_each_n(std::execution::par_unseq,
-                      std::views::iota(0).begin(), n,
-                      copy_functor(send_left, send_right, recv_right, recv_left));
-      /* This does not work. For the momemnt, use deep copy instead of swapping
-      std::swap( send_left, recv_right );
-      std::swap( send_right, recv_left );
-      */
+      std::vector<double>& send_left_vector  = send.left_vector();
+      std::vector<double>& send_right_vector = send.right_vector();
+      std::vector<double>& recv_left_vector  = recv.left_vector();
+      std::vector<double>& recv_right_vector = recv.right_vector();
+
+      std::swap( send_left_vector, recv_right_vector );
+      std::swap( send_right_vector, recv_left_vector );
     }
   }
 

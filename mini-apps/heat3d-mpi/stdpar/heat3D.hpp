@@ -5,10 +5,10 @@
 #include <ranges>
 #include <execution>
 #include "mpi_comm.hpp"
-#include "config.hpp"
+#include "../config.hpp"
+#include "../types.hpp"
 #include "grid.hpp"
 #include "variable.hpp"
-#include "types.hpp"
 #include "functors.hpp"
 
 template <typename RealType>

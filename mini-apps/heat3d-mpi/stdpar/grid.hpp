@@ -2,10 +2,9 @@
 #define __GRID_HPP__
 
 #include <cmath>
-#include <iostream>
 #include <execution>
-#include "types.hpp"
-#include "config.hpp"
+#include "../types.hpp"
+#include "../config.hpp"
 
 template <typename ScalarType>
 inline std::vector<ScalarType> arange(const ScalarType start,
