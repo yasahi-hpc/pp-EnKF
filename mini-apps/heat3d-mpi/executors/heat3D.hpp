@@ -60,9 +60,10 @@ void solve(const Config& conf,
     for(std::size_t i=0; i<conf.nbiter_; i++) {
       comm.pack(scheduler, u);
 
-      auto inner_update = stdexec::just()
-        | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) )
-        | stdexec::then( [&]{ comm.commP2P(); } );
+      auto inner_update = stdexec::when_all(
+        stdexec::just() | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) ),
+        stdexec::just() | stdexec::then( [&]{ comm.commP2P(); } )
+      );
 
       stdexec::sync_wait( std::move(inner_update) );
 
@@ -134,6 +135,9 @@ static void report_performance(const Config& conf, double seconds) {
   // 9 Flop per iteration
   const double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 9 / 1.e9;
 
+  #if defined(OVERLAP)
+    std::cout << "Communication and Computation Overlap" << std::endl;
+  #endif
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;
   std::cout << "Bandwidth: " << GBytes / seconds << " [GB/s]" << std::endl;
   std::cout << "Flops: " << GFlops / seconds << " [GFlops]" << std::endl;
