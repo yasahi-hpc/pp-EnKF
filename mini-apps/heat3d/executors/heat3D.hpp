@@ -3,11 +3,14 @@
 
 #include <iostream>
 #include <stdexec/execution.hpp>
+#include <thrust/execution_policy.h>
 #include "exec/on.hpp"
-#include "config.hpp"
+#include "../types.hpp"
+#include "../config.hpp"
 #include "grid.hpp"
 #include "variable.hpp"
-#include "types.hpp"
+
+using counting_iterator = thrust::counting_iterator<size_type>;
 
 template <typename RealType>
 struct init_functor{

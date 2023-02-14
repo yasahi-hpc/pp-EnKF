@@ -4,10 +4,10 @@
 #include <iostream>
 #include <ranges>
 #include <execution>
-#include "config.hpp"
+#include "../types.hpp"
+#include "../config.hpp"
 #include "grid.hpp"
 #include "variable.hpp"
-#include "types.hpp"
 
 template <typename RealType>
 struct init_functor{

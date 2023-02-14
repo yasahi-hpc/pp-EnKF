@@ -2,8 +2,8 @@
 #define __VARIABLE_HPP__
 
 #include <vector>
-#include "types.hpp"
-#include "config.hpp"
+#include "../types.hpp"
+#include "../config.hpp"
 
 template <typename RealType>
 struct Variable {

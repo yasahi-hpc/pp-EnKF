@@ -1,9 +1,9 @@
 #include <chrono>
+#include "../config.hpp"
+#include "../parser.hpp"
 #include "heat3D.hpp"
-#include "config.hpp"
 #include "variable.hpp"
 #include "grid.hpp"
-#include "../parser.hpp"
 
 int main(int argc, char *argv[]) {
   Parser parser(argc, argv);

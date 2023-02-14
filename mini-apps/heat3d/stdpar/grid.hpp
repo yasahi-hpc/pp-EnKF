@@ -4,8 +4,8 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
-#include "types.hpp"
-#include "config.hpp"
+#include "../types.hpp"
+#include "../config.hpp"
 
 template <typename ScalarType>
 inline std::vector<ScalarType> arange(const ScalarType start,
