@@ -1,8 +1,9 @@
 #ifndef __VARIABLE_HPP__
 #define __VARIABLE_HPP__
 
-#include "types.hpp"
-#include "config.hpp"
+#include <thrust/device_vector.h>
+#include "../types.hpp"
+#include "../config.hpp"
 
 template <typename RealType>
 struct Variable {

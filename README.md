@@ -35,7 +35,7 @@ module load nvhpc/22.11 hpcx-ompi
 ```bash
 cd executor_testing
 mkdir build && cd build
-cmake -DCMAKE_CXX_COMPILER=nvc++ ..
+cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=[CUDA, OPENMP] ..
 cmake --build . -j 8
 ```
 
@@ -55,6 +55,6 @@ module load nvhpc/22.11 hpcx-ompi
 ```bash
 cd executor_testing
 mkdir build && cd build
-cmake -DCMAKE_CXX_COMPILER=nvc++ ..
+cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=[CUDA, OPENMP] ..
 cmake --build . -j 8
 ```

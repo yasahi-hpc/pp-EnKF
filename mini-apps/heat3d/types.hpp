@@ -1,6 +1,7 @@
 #ifndef __TYPES_HPP__
 #define __TYPES_HPP__
 
+#include <array>
 #include <experimental/mdspan>
 
 using size_type = std::size_t;

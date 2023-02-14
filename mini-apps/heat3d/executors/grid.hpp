@@ -3,9 +3,9 @@
 
 #include <cmath>
 #include <thrust/sequence.h>
-#include <iostream>
-#include "types.hpp"
-#include "config.hpp"
+#include <thrust/device_vector.h>
+#include "../types.hpp"
+#include "../config.hpp"
 
 template <typename ScalarType>
 inline thrust::device_vector<ScalarType> arange(const ScalarType start,
