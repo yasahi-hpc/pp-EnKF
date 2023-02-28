@@ -53,4 +53,4 @@ jobs:
       # Execute tests defined by the CMake configuration. Testing on CPUs only
       # For the moment stdpar only
       run: |
-        docker run -v ${{github.workspace}}:/work ${{ env.container }} ctest --test-dir build_OPENMP -C ${{env.BUILD_TYPE}}
+        docker run -v ${{github.workspace}}:/work ${{ env.container }} ctest --test-dir build_OPENMP/tests -C ${{env.BUILD_TYPE}}
