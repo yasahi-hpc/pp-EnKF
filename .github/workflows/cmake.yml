@@ -19,6 +19,7 @@ jobs:
     
     env:
       backends: OPENMP CUDA
+      container: nvidia_hpc_sdk_env
 
     steps:
     - uses: actions/checkout@v3
@@ -36,13 +37,20 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: |
         for backend in ${{ env.backends }}; do
-          docker run -v ${{github.workspace}}:/work nvidia_hpc_sdk_env cmake -B build_${backend} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_COMPILER=${{env.CMAKE_CXX_COMPILER}} \
-            -DBACKEND=${backend}
+          docker run -v ${{github.workspace}}:/work ${{ env.container }} cmake -B build_${backend} \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_COMPILER=${{env.CMAKE_CXX_COMPILER}} \
+            -DBACKEND=${backend} -DBUILD_TESTING=ON
         done
 
     - name: Build
       # Build your program with the given configuration
       run: |
         for backend in ${{ env.backends }}; do
-          docker run -v ${{github.workspace}}:/work nvidia_hpc_sdk_env cmake --build build_${backend} --config ${{env.BUILD_TYPE}} -- VERBOSE=1 -j 8
+          docker run -v ${{github.workspace}}:/work ${{ env.container }} cmake --build build_${backend} --config ${{env.BUILD_TYPE}} -- VERBOSE=1 -j 8
         done
+
+    - name: Test
+      # Execute tests defined by the CMake configuration. Testing on CPUs only
+      # For the moment stdpar only
+      run: |
+        docker run -v ${{github.workspace}}:/work ${{ env.container }} ctest --test-dir build_OPENMP/tests -C ${{env.BUILD_TYPE}}

@@ -1,3 +1,6 @@
 [submodule "ext_lib/stdexec"]
 	path = ext_lib/stdexec
 	url = https://github.com/NVIDIA/stdexec.git
+[submodule "ext_lib/googletest"]
+	path = ext_lib/googletest
+	url = https://github.com/google/googletest

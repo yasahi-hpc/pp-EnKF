@@ -1,0 +1,8 @@
+if(PROGRAMMING_MODEL STREQUAL "STDPAR")
+    add_subdirectory(stdpar)
+elseif(PROGRAMMING_MODEL STREQUAL "EXECUTORS")
+    add_subdirectory(executors)
+else()
+    add_subdirectory(stdpar)
+    #add_subdirectory(executors)
+endif()
