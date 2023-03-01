@@ -147,6 +147,7 @@ public:
   value_type *data() { return data_; }
   const value_type *data() const { return data_; }
   mdspan_type mdspan() { return mdspan_type( data_, extents_ ) ; }
+  const mdspan_type mdspan() const { return mdspan_type( data_, extents_ ) ; }
 
   inline void setName(const std::string &name) { name_ = name; }
   inline void setIsEmpty(bool is_empty) { is_empty_ = is_empty; }
