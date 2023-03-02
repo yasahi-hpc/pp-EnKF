@@ -3,7 +3,7 @@
 
 #include <array>
 
-static constexpr size_t DIMENSION = 4;
+static constexpr std::size_t DIMENSION = 4;
 
 template <std::size_t N>
 using shape_type = std::array<std::size_t, N>;

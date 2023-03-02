@@ -66,6 +66,6 @@ void test_fft_2d() {
   }
 }
 
-TEST( FFT, DIM2 ) {
+TEST( STDPAR_FFT, DIM2 ) {
   test_fft_2d();
 }

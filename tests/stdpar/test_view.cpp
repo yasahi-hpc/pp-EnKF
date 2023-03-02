@@ -61,37 +61,32 @@ void test_copy_constructor() {
 void test_assignment_operator() {
   // [NOTE] Do not recommend to use assignement opertor
   RealView2D simple;
+  RealView2D assinged_via_simple("assinged_via_simple", 16, 16);
   RealView2D reference("reference", 16, 16);
+
+  simple = assinged_via_simple;
 
   // Set in the main function
   const int n = reference.extent(0);
   const int m = reference.extent(1);
 
   Iterate_policy<2> policy2d({0, 0}, {n, m});
-
   auto _reference = reference.mdspan();
+  auto _simple = simple.mdspan();
   Impl::for_each(policy2d,
     [=] (const int i, const int j){
       _reference(i, j) = i + j * 0.2 + 0.01;
+      _simple(i, j) = i + j * 0.2 + 0.01;
     });
 
   reference.updateSelf();
-  simple = reference;
+  assinged_via_simple.updateSelf();
 
   // Check if the host data are identical
   for(int j=0; j<m; j++) {
     for(int i=0; i<n; i++) {
-      ASSERT_EQ( simple(i, j), reference(i, j) );
-      ASSERT_NE( simple(i, j), 0.0 ); // Just to make sure simple has some value
-    }
-  }
-
-  simple.updateSelf();
-  // Check if the device data are identical
-  for(int j=0; j<m; j++) {
-    for(int i=0; i<n; i++) {
-      ASSERT_EQ( simple(i, j), reference(i, j) );
-      ASSERT_NE( simple(i, j), 0.0 ); // Just to make sure simple has some value
+      ASSERT_EQ( assinged_via_simple(i, j), reference(i, j) );
+      ASSERT_NE( assinged_via_simple(i, j), 0.0 ); // Just to make sure simple has some value
     }
   }
 }
@@ -229,28 +224,28 @@ void test_swap() {
   }
 }
 
-TEST( VIEW, DEFAULT_CONSTRUCTOR ) {
+TEST( STDPAR_VIEW, DEFAULT_CONSTRUCTOR ) {
   RealView2D empty; 
   RealView2D simple("simple", std::array<size_type, 2>{2, 3}); // Simple constructor
   RealView2D Kokkos_like("kokkos_like", 2, 3); // Kokkos like constructor
 }
 
-TEST( VIEW, COPY_CONSTRUCTOR ) {
+TEST( STDPAR_VIEW, COPY_CONSTRUCTOR ) {
   test_copy_constructor();
 }
 
-TEST( VIEW, ASSIGN ) {
+TEST( STDPAR_VIEW, ASSIGN ) {
   test_assignment_operator();
 }
 
-TEST( VIEW, MOVE ) {
+TEST( STDPAR_VIEW, MOVE ) {
   test_move_constructor();
 }
 
-TEST( VIEW, MOVE_ASSIGN ) {
+TEST( STDPAR_VIEW, MOVE_ASSIGN ) {
   test_move_assignment_operator();
 }
 
-TEST( VIEW, SWAP ) {
+TEST( STDPAR_VIEW, SWAP ) {
   test_swap();
 }

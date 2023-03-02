@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "Types.hpp"
-#include "Transpose.hpp"
+#include <Transpose.hpp>
 
-TEST( TRANSPOSE, EVEN ) {
+TEST( STDPAR_TRANSPOSE, EVEN ) {
   const int rows = 16;
   const int cols = rows * 2;
   double eps = 1.e-8;
@@ -40,7 +40,7 @@ TEST( TRANSPOSE, EVEN ) {
   }
 }
 
-TEST( TRANSPOSE, ODD ) {
+TEST( STDPAR_TRANSPOSE, ODD ) {
   const int rows = 15;
   const int cols = rows * 2;
   double eps = 1.e-8;

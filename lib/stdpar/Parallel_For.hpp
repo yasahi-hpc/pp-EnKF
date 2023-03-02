@@ -1,5 +1,5 @@
-#ifndef __PARALLEL_FOR_HPP__
-#define __PARALLEL_FOR_HPP__
+#ifndef __STDPAR_PARALLEL_FOR_HPP__
+#define __STDPAR_PARALLEL_FOR_HPP__
 
 #include <ranges>
 #include "../Iteration.hpp"

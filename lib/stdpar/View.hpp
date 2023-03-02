@@ -63,7 +63,7 @@ public:
  
   View& operator=(const View& rhs) {
     if (this == &rhs) return *this;
-    deep_copy(rhs);
+    shallow_copy(rhs);
     return *this;
   }
 
@@ -153,12 +153,14 @@ public:
   inline void setIsEmpty(bool is_empty) { is_empty_ = is_empty; }
 
   // Do nothing, in order to inform compiler "vector_" is on device by launching a gpu kernel
+  // [TO DO] this method may cause a problem if called from shallow copied view
   void updateDevice() {
     auto tmp = vector_;
     std::copy(std::execution::par_unseq, tmp.begin(), tmp.end(), vector_.begin());
   }
 
   // Do nothing, in order to inform compiler "vector_" is on host by launching a host kernel
+  // [TO DO] this method may cause a problem if called from shallow copied view
   void updateSelf() {
     auto tmp = vector_;
     std::copy(tmp.begin(), tmp.end(), vector_.begin());
