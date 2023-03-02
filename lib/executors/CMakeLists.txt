@@ -1,0 +1,28 @@
+set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+
+if(BACKEND STREQUAL "CUDA")
+    find_package(CUDAToolkit REQUIRED COMPONENTS cufft culbas)
+    target_link_libraries(math_lib INTERFACE CUDA::cufft CUDA::cublas)
+    target_compile_definitions(math_lib INTERFACE ENABLE_CUDA)
+elseif(BACKEND STREQUAL "HIP")
+    find_package(HIP REQUIRED)
+    find_package(rocthrust REQUIRED CONFIG PATHS)
+    find_package(rocfft REQUIRED CONFIG PATHS)
+    find_package(rocblas REQUIRED CONFIG PATHS)
+    target_link_libraries(math_lib INTERFACE hip::device roc::rocthrust roc::rocfft roc::rocblas)
+    target_compile_definitions(math_lib INTERFACE ENABLE_HIP)
+elseif(BACKEND STREQUAL "OPENMP")
+    find_package(OpenMP REQUIRED)
+    find_package(FFTW REQUIRED COMPONENTS DOUBLE_LIB)
+    target_link_libraries(math_lib INTERFACE OpenMP::OpenMP_CXX fftw3)
+    target_compile_definitions(math_lib INTERFACE ENABLE_OPENMP THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+else()
+    message(FATAL_ERROR "No parallel backend specified. One of CUDA, HIP, and OPENMP must be On.")
+endif()
+
+if(PROGRAMMING_MODEL STREQUAL "THRUST")
+    target_compile_definitions(math_lib INTERFACE ENABLE_THRUST)
+endif()
+
+# Compiler versions
+target_compile_features(math_lib INTERFACE cxx_std_20)
