@@ -1,5 +1,5 @@
-#ifndef __PARALLEL_REDUCE_HPP__
-#define __PARALLEL_REDUCE_HPP__
+#ifndef __STDPAR_PARALLEL_REDUCE_HPP__
+#define __STDPAR_PARALLEL_REDUCE_HPP__
 
 #include <ranges>
 #include "../Iteration.hpp"

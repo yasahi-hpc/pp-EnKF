@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "Types.hpp"
-#include <stdpar/Parallel_For.hpp>
+#include <executors/Parallel_For.hpp>
 
 void allocate_inside_function(RealView2D& reference_to_a_View, const int n, const int m) {
   // Set values on device via move assign
@@ -224,28 +224,28 @@ void test_swap() {
   }
 }
 
-TEST( STDPAR_VIEW, DEFAULT_CONSTRUCTOR ) {
+TEST( EXECUTORS_VIEW, DEFAULT_CONSTRUCTOR ) {
   RealView2D empty; 
   RealView2D simple("simple", std::array<size_type, 2>{2, 3}); // Simple constructor
   RealView2D Kokkos_like("kokkos_like", 2, 3); // Kokkos like constructor
 }
 
-TEST( STDPAR_VIEW, COPY_CONSTRUCTOR ) {
+TEST( EXECUTORS_VIEW, COPY_CONSTRUCTOR ) {
   test_copy_constructor();
 }
 
-TEST( STDPAR_VIEW, ASSIGN ) {
+TEST( EXECUTORS_VIEW, ASSIGN ) {
   test_assignment_operator();
 }
 
-TEST( STDPAR_VIEW, MOVE ) {
+TEST( EXECUTORS_VIEW, MOVE ) {
   test_move_constructor();
 }
 
-TEST( STDPAR_VIEW, MOVE_ASSIGN ) {
+TEST( EXECUTORS_VIEW, MOVE_ASSIGN ) {
   test_move_assignment_operator();
 }
 
-TEST( STDPAR_VIEW, SWAP ) {
+TEST( EXECUTORS_VIEW, SWAP ) {
   test_swap();
 }

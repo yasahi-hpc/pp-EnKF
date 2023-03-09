@@ -63,7 +63,7 @@ public:
  
   View& operator=(const View& rhs) {
     if (this == &rhs) return *this;
-    deep_copy(rhs);
+    shallow_copy(rhs);
     return *this;
   }
 
@@ -147,17 +147,20 @@ public:
   value_type *data() { return data_; }
   const value_type *data() const { return data_; }
   mdspan_type mdspan() { return mdspan_type( data_, extents_ ) ; }
+  const mdspan_type mdspan() const { return mdspan_type( data_, extents_ ) ; }
 
   inline void setName(const std::string &name) { name_ = name; }
   inline void setIsEmpty(bool is_empty) { is_empty_ = is_empty; }
 
   // Do nothing, in order to inform compiler "vector_" is on device by launching a gpu kernel
+  // [TO DO] this method may cause a problem if called from shallow copied view
   void updateDevice() {
     auto tmp = vector_;
     std::copy(std::execution::par_unseq, tmp.begin(), tmp.end(), vector_.begin());
   }
 
   // Do nothing, in order to inform compiler "vector_" is on host by launching a host kernel
+  // [TO DO] this method may cause a problem if called from shallow copied view
   void updateSelf() {
     auto tmp = vector_;
     std::copy(tmp.begin(), tmp.end(), vector_.begin());

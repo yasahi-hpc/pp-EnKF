@@ -2,7 +2,7 @@
 #include "Types.hpp"
 #include <Transpose.hpp>
 
-TEST( STDPAR_TRANSPOSE, EVEN ) {
+TEST( EXECUTORS_TRANSPOSE, EVEN ) {
   const int rows = 16;
   const int cols = rows * 2;
   double eps = 1.e-8;
@@ -40,7 +40,7 @@ TEST( STDPAR_TRANSPOSE, EVEN ) {
   }
 }
 
-TEST( STDPAR_TRANSPOSE, ODD ) {
+TEST( EXECUTORS_TRANSPOSE, ODD ) {
   const int rows = 15;
   const int cols = rows * 2;
   double eps = 1.e-8;

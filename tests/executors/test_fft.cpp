@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "Types.hpp"
 #include <FFT.hpp>
-#include <stdpar/Parallel_For.hpp>
+#include <executors/Parallel_For.hpp>
 #include <cmath>
 
 void test_fft_2d() {
@@ -66,6 +66,6 @@ void test_fft_2d() {
   }
 }
 
-TEST( STDPAR_FFT, DIM2 ) {
+TEST( EXECUTORS_FFT, DIM2 ) {
   test_fft_2d();
 }
