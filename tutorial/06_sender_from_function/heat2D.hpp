@@ -179,7 +179,7 @@ void finalize(const Config& conf,
   const std::size_t nx = conf.nx_;
 
   auto analytical_solution = stdexec::just()
-                 | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, un)) ); 
+    | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, un)) ); 
   stdexec::sync_wait(analytical_solution);
 
   // Check errors
@@ -210,8 +210,8 @@ stdexec::sender auto solve_heat2d(const Config& conf,
   
   const std::size_t n = conf.nx_ * conf.ny_;
   return stdexec::just()
-    | exec::on(scheduler, stdexec::bulk(n, heat2d_functor(conf, u, un))
-    | stdexec::then( [&]{ std::swap(u, un); } ) );
+    | exec::on(scheduler, stdexec::bulk(n, heat2d_functor(conf, u, un)) )
+    | stdexec::then( [&]{ std::swap(u, un); } );
 }
 
 static void report_performance(const Config& conf, double seconds) {
@@ -221,6 +221,13 @@ static void report_performance(const Config& conf, double seconds) {
   // 7 Flop per iteration
   const double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 7 / 1.e9;
 
+  #if defined(ENABLE_OPENMP)
+    std::string backend = "OPENMP";
+  #else
+    std::string backend = "CUDA";
+  #endif
+
+  std::cout << backend + " backend" << std::endl;
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;
   std::cout << "Bandwidth: " << GBytes / seconds << " [GB/s]" << std::endl;
   std::cout << "Flops: " << GFlops / seconds << " [GFlops]" << std::endl;
