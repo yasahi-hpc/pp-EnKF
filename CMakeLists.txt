@@ -4,9 +4,17 @@ project(executors_tutorial LANGUAGES CXX)
 # Add cmake helpers
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_SOURCE_DIR}/cmake")
 
+# Keep BUILD_TESTING
+set(PRIVATE_BUILD_TESTING ${BUILD_TESTING})
+
 # Find external libraries
 find_package(Threads REQUIRED)
 find_package(stdexec CONFIG)
+
+# In order to disable testing for stdexec
+set(STDEXEC_BUILD_EXAMPLES OFF)
+set(STDEXEC_BUILD_TESTS OFF)
+set(BUILD_TESTING OFF)
 if(NOT stdexec_FOUND)
     add_subdirectory(ext_lib/stdexec)
 endif()
@@ -16,7 +24,7 @@ add_subdirectory(lib)
 
 # Test
 include(CTest)
-if(BUILD_TESTING)
+if(${PRIVATE_BUILD_TESTING})
     find_package(GTest CONFIG)
     if(NOT GTest_FOUND)
         add_subdirectory(ext_lib/googletest)
