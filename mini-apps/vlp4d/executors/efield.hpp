@@ -94,9 +94,6 @@ public:
     auto ey_hat  = ey_hat_.mdspan();
     auto filter  = filter_.mdspan();
 
-    // Forward 2D FFT (Real to Complex)
-    fft_->rfft2(rho.data_handle(), rho_hat.data_handle());
-
     // Solve Poisson equation in Fourier space
     // In order to avoid zero division in vectorized way
     // filter[0] == 0, and filter[0:] == 1./(ix*kx0)**2
