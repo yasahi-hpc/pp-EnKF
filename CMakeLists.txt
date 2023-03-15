@@ -23,8 +23,9 @@ endif()
 add_subdirectory(lib)
 
 # Test
+set(BUILD_TESTING ${PRIVATE_BUILD_TESTING})
 include(CTest)
-if(${PRIVATE_BUILD_TESTING})
+if(BUILD_TESTING)
     find_package(GTest CONFIG)
     if(NOT GTest_FOUND)
         add_subdirectory(ext_lib/googletest)

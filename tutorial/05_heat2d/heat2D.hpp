@@ -179,7 +179,7 @@ void finalize(const Config& conf,
   const std::size_t nx = conf.nx_;
 
   auto analytical_solution = stdexec::just()
-                 | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, un)) ); 
+    | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, un)) ); 
   stdexec::sync_wait(analytical_solution);
 
   // Check errors
@@ -210,8 +210,8 @@ void step(const Config& conf,
   
   const std::size_t n = conf.nx_ * conf.ny_;
   auto time_step = stdexec::just()
-                 | exec::on( scheduler, stdexec::bulk(n, heat2d_functor(conf, u, un)) )
-                 | stdexec::then( [&]{ std::swap(u, un); });
+    | exec::on( scheduler, stdexec::bulk(n, heat2d_functor(conf, u, un)) )
+    | stdexec::then( [&]{ std::swap(u, un); });
   stdexec::sync_wait(time_step);
 }
 
