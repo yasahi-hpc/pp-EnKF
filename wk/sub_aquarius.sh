@@ -18,7 +18,16 @@ spack load gcc@11.3.0
 spack load cmake@3.24.3
 module load /work/jh220031a/i18048/lib/nvidia/hpc_sdk22.11/modulefiles/nvhpc/22.11
 
-../build/mini-apps/heat3d/stdpar/heat3d_stdpar
+# Need GPUs to build the code appropriately
+# So compile inside a batch job, wherein GPUs are visible
+cd ../
+mkdir build && cd build
+cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
+cmake --build . -j 8
+cd wk/
+
+../build/tutorial/07_heat2d_repeat_n/07_heat2d_repeat_n
+#../build/mini-apps/heat3d/stdpar/heat3d_stdpar
 #../build/tutorial/05_heat2d/05_heat_test
 #../build/tutorial/04_stream/04_stream_test
 #../build/tutorial/02_hello_world_nvexec/02_hello_world
