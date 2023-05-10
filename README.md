@@ -1,5 +1,7 @@
 # Testing Executors
 
+[![CI](https://github.com/yasahi-hpc/executor_testing/actions/workflows/cmake.yml/badge.svg)](https://github.com/yasahi-hpc/executor_testing/actions)
+
 ## Examples
 We added small examples under tutorial and mini-apps. 
 * [tutorial](tutorial)
