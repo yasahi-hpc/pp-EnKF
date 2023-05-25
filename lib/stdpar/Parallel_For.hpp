@@ -2,7 +2,11 @@
 #define __STDPAR_PARALLEL_FOR_HPP__
 
 #include <ranges>
+#include <execution>
+#include <experimental/mdspan>
 #include "../Iteration.hpp"
+
+namespace stdex = std::experimental;
 
 namespace Impl {
   // Only for 1D case

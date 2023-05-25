@@ -37,9 +37,9 @@ private:
   extents_type extents_;
 
 public:
-  View() : name_("empty"), is_empty_(true), data_(nullptr) {}
+  View() : name_("empty"), is_empty_(true), data_(nullptr), size_(0) {}
   View(const std::string name, std::array<size_type, extents_type::rank()> extents)
-    : name_(name), is_empty_(false), data_(nullptr) {
+    : name_(name), is_empty_(false), data_(nullptr), size_(0) {
     init(extents);
   }
   
@@ -49,7 +49,7 @@ public:
                  std::tuple_element_t<0, std::tuple<I...>>
                >, std::nullptr_t> = nullptr>
   View(const std::string name, I... indices)
-    : name_(name), is_empty_(false), data_(nullptr) {
+    : name_(name), is_empty_(false), data_(nullptr), size_(0) {
     std::array<size_type, extents_type::rank()> extents = {static_cast<size_type>(indices)...};
     init(extents);
   }
@@ -93,6 +93,7 @@ private:
     this->setIsEmpty(rhs.is_empty());
     data_ = rhs.data_;
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void shallow_copy(View&& rhs) {
@@ -100,6 +101,7 @@ private:
     this->setIsEmpty(rhs.is_empty());
     data_ = rhs.vector_.data();
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void deep_copy(const View& rhs) {
@@ -108,6 +110,7 @@ private:
     vector_ = rhs.vector_; // not a move
     data_ = vector_.data();
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void deep_copy(View&& rhs) {
@@ -116,6 +119,7 @@ private:
     vector_ = std::move(rhs.vector_);
     data_ = vector_.data();
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
 public:

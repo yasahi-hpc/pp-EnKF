@@ -1,8 +1,8 @@
 set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
 
 if(BACKEND STREQUAL "CUDA")
-    find_package(CUDAToolkit REQUIRED COMPONENTS cufft culbas)
-    target_link_libraries(math_lib INTERFACE CUDA::cufft CUDA::cublas)
+    find_package(CUDAToolkit REQUIRED COMPONENTS cufft culbas curand)
+    target_link_libraries(math_lib INTERFACE CUDA::cufft CUDA::cublas CUDA::curand)
     target_compile_definitions(math_lib INTERFACE ENABLE_CUDA)
 elseif(BACKEND STREQUAL "HIP")
     find_package(HIP REQUIRED)
