@@ -4,3 +4,6 @@
 [submodule "ext_lib/googletest"]
 	path = ext_lib/googletest
 	url = https://github.com/google/googletest
+[submodule "ext_lib/json"]
+	path = ext_lib/json
+	url = https://github.com/nlohmann/json.git
