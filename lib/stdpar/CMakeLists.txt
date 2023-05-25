@@ -2,7 +2,7 @@ set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
 
 if(BACKEND STREQUAL "CUDA")
     target_compile_definitions(math_lib INTERFACE ENABLE_CUDA ENABLE_STDPAR)
-    target_compile_options(math_lib INTERFACE -O3 -cudalib=cufft,cublas)
+    target_compile_options(math_lib INTERFACE -O3 -cudalib=cufft,cublas,curand)
 elseif(BACKEND STREQUAL "OPENMP")
     find_package(OpenMP REQUIRED)
     find_package(FFTW REQUIRED COMPONENTS DOUBLE_LIB)

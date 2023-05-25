@@ -51,15 +51,15 @@ private:
   extents_type extents_;
 
 public:
-  View() : name_("empty"), is_empty_(true), host_data_(nullptr), device_data_(nullptr) {}
+  View() : name_("empty"), is_empty_(true), host_data_(nullptr), device_data_(nullptr), size_(0) {}
   View(const std::string name, std::array<size_type, extents_type::rank()> extents)
-    : name_(name), is_empty_(false), host_data_(nullptr), device_data_(nullptr) {
+    : name_(name), is_empty_(false), host_data_(nullptr), device_data_(nullptr), size_(0) {
     init(extents);
   }
   
   template <typename... I>
   View(const std::string name, I... indices)
-    : name_(name), is_empty_(false), host_data_(nullptr), device_data_(nullptr) {
+    : name_(name), is_empty_(false), host_data_(nullptr), device_data_(nullptr), size_(0) {
     std::array<size_type, extents_type::rank()> extents = {static_cast<size_type>(indices)...};
     init(extents);
   }
@@ -112,6 +112,7 @@ private:
     host_data_ = rhs.host_data_;
     device_data_ = rhs.device_data_;
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void shallow_copy(View&& rhs) {
@@ -125,6 +126,7 @@ private:
       device_data_ = (value_type *)thrust::raw_pointer_cast(rhs.host_vector_.data());
     #endif
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void deep_copy(const View& rhs) {
@@ -140,6 +142,7 @@ private:
       device_data_ = (value_type *)thrust::raw_pointer_cast(host_vector_.data());
     #endif
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
   void deep_copy(View&& rhs) {
@@ -156,6 +159,7 @@ private:
       device_data_ = (value_type *)thrust::raw_pointer_cast(host_vector_.data());
     #endif
     extents_ = rhs.extents_;
+    size_ = rhs.size_;
   }
 
 public:
