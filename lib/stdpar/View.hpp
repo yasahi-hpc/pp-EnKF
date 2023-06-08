@@ -89,7 +89,7 @@ private:
 
   // Only copying meta data
   void shallow_copy(const View& rhs) {
-    this->setName(rhs.name()+"_copy");
+    this->setName(rhs.name());
     this->setIsEmpty(rhs.is_empty());
     data_ = rhs.data_;
     extents_ = rhs.extents_;
@@ -97,7 +97,7 @@ private:
   }
 
   void shallow_copy(View&& rhs) {
-    this->setName(rhs.name()+"_copy");
+    this->setName(rhs.name());
     this->setIsEmpty(rhs.is_empty());
     data_ = rhs.vector_.data();
     extents_ = rhs.extents_;

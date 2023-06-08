@@ -62,9 +62,12 @@ struct Settings {
   int obs_interval_ = 1; // Observation interval
   int da_interval_ = 1; // Interval for data assimilation
   int ensemble_idx_ = 0; // MPI rank
+  int rloc_len_ = 1; // r-localization c = p-1
+  double beta_ = 1; // covariance inflation
 
   bool lyapnov_ = false;
   bool is_les_ = true;
+  bool is_reference_ = true; // false for DA cases
   double ly_epsilon_ = 1.e-8;
 
   // data assimilation parameter

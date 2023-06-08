@@ -149,14 +149,14 @@ struct macroscopic_functor {
 private:
   Config conf_;
   mdspan3d_type f_;
-  mdspan2d_type rho_, u_, v_, fx_, fy_;
+  mdspan2d_type rho_, u_, v_;
   double dt_, c_;
   int Q_;
 
 public:
-  macroscopic_functor(const Config& conf, const mdspan3d_type& f, const mdspan2d_type& fx, const mdspan2d_type& fy,
+  macroscopic_functor(const Config& conf, const mdspan3d_type& f,
                       mdspan2d_type& rho, mdspan2d_type& u, mdspan2d_type& v)
-    : conf_(conf), f_(f), fx_(fx), fy_(fy), rho_(rho), u_(u), v_(v) {
+    : conf_(conf), f_(f), rho_(rho), u_(u), v_(v) {
     Q_ = conf_.phys_.Q_;
     c_ = conf_.settings_.c_;
     dt_ = conf_.settings_.dt_;
@@ -179,10 +179,6 @@ public:
       v_tmp += f_tmp * c_ * qy;
     }
 
-    // Correction with force term
-    //u_tmp += fx_(ix, iy) * dt_ / 2;
-    //v_tmp += fy_(ix, iy) * dt_ / 2;
-
     rho_(ix, iy) = rho_tmp;
     u_(ix, iy)   = u_tmp / rho_tmp;
     v_(ix, iy)   = v_tmp / rho_tmp;
@@ -194,14 +190,14 @@ struct streaming_macroscopic_functor {
 private:
   Config conf_;
   mdspan3d_type f_, fn_;
-  mdspan2d_type rho_, u_, v_, fx_, fy_;
+  mdspan2d_type rho_, u_, v_;
   double dt_, c_;
   int nx_, ny_;
 
 public:
-  streaming_macroscopic_functor(const Config& conf, const mdspan3d_type& f, const mdspan2d_type& fx, const mdspan2d_type& fy,
+  streaming_macroscopic_functor(const Config& conf, const mdspan3d_type& f,
                                 mdspan3d_type& fn, mdspan2d_type& rho, mdspan2d_type& u, mdspan2d_type& v)
-    : conf_(conf), f_(f), fn_(fn), fx_(fx), fy_(fy), rho_(rho), u_(u), v_(v) {
+    : conf_(conf), f_(f), fn_(fn), rho_(rho), u_(u), v_(v) {
     auto [nx, ny] = conf_.settings_.n_;
     nx_ = static_cast<int>(nx);
     ny_ = static_cast<int>(ny);
@@ -238,10 +234,6 @@ public:
       u_tmp += f_tmp[q] * c_ * qx;
       v_tmp += f_tmp[q] * c_ * qy;
     }
-
-    // Correction with force term
-    //u_tmp += fx_(ix, iy) * dt_ / 2;
-    //v_tmp += fy_(ix, iy) * dt_ / 2;
 
     rho_(ix, iy) = rho_tmp;
     u_(ix, iy)   = u_tmp / rho_tmp;

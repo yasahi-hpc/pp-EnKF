@@ -53,8 +53,7 @@ public:
     const auto x = x_.mdspan();
     const auto y = y_.mdspan();
     const auto rand_pool = rand_pool_.mdspan();
-    // const std::pair shifted(shift, rand_pool_.extent(1));
-    //const auto rand_pool = submdspan( rand_pool_.mdspan(), stdex::full_extent_t, shifted);
+    //const auto sub_rand_pool = submdspan(rand_pool, stdex::full_extent_t, stdex::full_extent_t, shift);
     auto fx = fx_.mdspan();
     auto fy = fy_.mdspan();
 
@@ -86,28 +85,6 @@ public:
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
     Impl::for_each(policy2d, force_lambda);
-
-    double fx_tmp = 0;
-    double fy_tmp = 0;
-    for(int iy=0; iy<ny; iy++) {
-      for(int ix=0; ix<nx; ix++) {
-        fx_tmp += fx(ix, iy) / (nx * ny);
-        fy_tmp += fy(ix, iy) / (nx * ny);
-      }
-    }
-
-    /*
-    double pool_tmp = 0;
-    for(int iy=0; iy<n_rand_buf_; iy++) {
-      for(int ix=0; ix<4; ix++) {
-        pool_tmp += rand_pool_(ix, iy);
-      }
-    }
-    */
-
-    std::cout << "fx_tmp: "   << fx_tmp << std::endl;
-    std::cout << "fy_tmp: "   << fy_tmp << std::endl;
-    //std::cout << "pool_tmp: " << pool_tmp << std::endl;
   }
 
 private:
@@ -180,7 +157,6 @@ private:
     x_   = RealView1D("x", nx);
     y_   = RealView1D("y", ny);
     rand_pool_ = RealView3D("rand", force_kx.size(), 4, 4096);
-    //rand_pool_ = RealView2D("theta", 4, n_rand_buf_);
 
     fx_ = RealView2D("fx", nx, ny);
     fy_ = RealView2D("fy", nx, ny);
@@ -197,17 +173,14 @@ private:
 
     for(std::size_t i=0; i<force_kx.size(); i++) {
       kx_(i) = force_kx.at(i);
-      //std::cout << "kx_(" << i << ") = " << kx_(i) << std::endl;
     }
 
     for(std::size_t i=0; i<force_ky.size(); i++) {
       ky_(i) = force_ky.at(i);
-      //std::cout << "ky_(" << i << ") = " << ky_(i) << std::endl;
     }
 
     for(std::size_t i=0; i<force_amp.size(); i++) {
       amp_(i) = force_amp.at(i);
-      //std::cout << "amp_(" << i << ") = " << amp_(i) << std::endl;
     }
 
   }

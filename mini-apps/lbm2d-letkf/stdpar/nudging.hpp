@@ -8,12 +8,14 @@
 class Nudging : public DA_Model {
 public:
   Nudging(Config& conf) : DA_Model(conf) {}
+  Nudging(Config& conf, MPIConfig& mpi_conf)=delete;
   virtual ~Nudging(){}
   void initialize() {
     setFileInfo();
   }
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it){
+    if(it == 0) return;
     load(data_vars, it); // loading rho_obs, u_obs, v_obs
 
     auto f       = data_vars->f().mdspan();

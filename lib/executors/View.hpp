@@ -107,7 +107,7 @@ private:
 
   // Only copying meta data
   void shallow_copy(const View& rhs) {
-    this->setName(rhs.name()+"_copy");
+    this->setName(rhs.name());
     this->setIsEmpty(rhs.is_empty());
     host_data_ = rhs.host_data_;
     device_data_ = rhs.device_data_;
@@ -116,7 +116,7 @@ private:
   }
 
   void shallow_copy(View&& rhs) {
-    this->setName(rhs.name()+"_copy");
+    this->setName(rhs.name());
     this->setIsEmpty(rhs.is_empty());
     host_data_ = (value_type *)thrust::raw_pointer_cast(rhs.host_vector_.data());
 

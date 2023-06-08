@@ -21,7 +21,6 @@
 
 class LBM2D : public Model {
 private:
-  int ensemble_id_ = 0;
   bool is_master_ = true;
   bool is_reference_ = true;
 
@@ -54,6 +53,8 @@ public:
     double k0 = conf_.phys_.kf_;
     double dk = conf_.phys_.dk_;
     double sigma = conf_.phys_.sigma_;
+    int ensemble_id = conf_.settings_.ensemble_idx_;
+    is_master_ = (ensemble_id == 0);
 
     // Allocate data
     vor_ = RealView2D("vor", nx, ny);
@@ -65,7 +66,7 @@ public:
     RealView2D theta("theta", nkx, nkx);
 
     // init val (mainly on host)
-    auto rand_engine = std::mt19937(ensemble_id_);
+    auto rand_engine = std::mt19937(ensemble_id);
     auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
     auto rand = [&]() { return rand_dist(rand_engine); };
     for(int iky=0; iky<nkx; iky++) {
@@ -144,7 +145,7 @@ public:
     // Create directories if not exist
     std::vector<std::string> dirs({"calc", "nature", "observed"});
     for(auto dir_name : dirs) {
-      std::string full_path = prefix + "/" + dir_name + "/ens" + Impl::zfill(ensemble_id_);
+      std::string full_path = prefix + "/" + dir_name + "/ens" + Impl::zfill(ensemble_id);
       directory_names_[dir_name] = full_path;
     }
 
@@ -154,8 +155,7 @@ public:
       Impl::mkdirs(directory_names_.at("observed"), 0755);
     }
 
-    // To be removed
-    if(is_master_) inspect(data_vars);
+    is_reference_ = conf_.settings_.is_reference_;
   }
 
   void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) {
@@ -279,28 +279,24 @@ private:
   void macroscopic(std::unique_ptr<DataVars>& data_vars) {
     auto [nx, ny] = conf_.settings_.n_;
     const auto fn = data_vars->fn().mdspan();
-    const auto fx = force_->fx().mdspan();
-    const auto fy = force_->fy().mdspan();
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
     auto v   = data_vars->v().mdspan();
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
-    Impl::for_each(policy2d, macroscopic_functor(conf_, fn, fx, fy, rho, u, v));
+    Impl::for_each(policy2d, macroscopic_functor(conf_, fn, rho, u, v));
   }
 
   void streaming_macroscopic(std::unique_ptr<DataVars>& data_vars) {
     auto [nx, ny] = conf_.settings_.n_;
     const auto f  = data_vars->f().mdspan();
-    const auto fx = force_->fx().mdspan();
-    const auto fy = force_->fy().mdspan();
     auto fn  = data_vars->fn().mdspan();
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
     auto v   = data_vars->v().mdspan();
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
-    Impl::for_each(policy2d, streaming_macroscopic_functor(conf_, f, fx, fy, fn, rho, u, v));
+    Impl::for_each(policy2d, streaming_macroscopic_functor(conf_, f, fn, rho, u, v));
   }
 
   void sgs(std::unique_ptr<DataVars>& data_vars) {
@@ -550,14 +546,7 @@ private:
 
     std::string file_name = dir_name + "/" + value.name() + "_step"
                           + Impl::zfill(it / conf_.settings_.io_interval_, 10) + ".dat";
-
-    std::FILE* fp = std::fopen(file_name.c_str(), "wb");
-    assert( fp != nullptr );
-    using real_type = ViewType::value_type;
-    std::size_t size = value.size();
-    std::size_t fwrite_size = std::fwrite(value.data(), sizeof(real_type), size, fp);
-    assert( fwrite_size == size );
-    std::fclose(fp);
+    Impl::to_binary(file_name, value.mdspan());
   }
 };
 
