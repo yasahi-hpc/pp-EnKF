@@ -1,7 +1,7 @@
 {
     "Physics": {
         "out_dir": "/work/jh220030a/i18048/data",
-        "case_name": "nature",
+        "case_name": "nudging",
         "rho_ref": 1.0,
         "u_ref": 1.0,
         "nu": 1.0e-4,
@@ -21,7 +21,7 @@
         "nbiter": 1000,
         "io_interval": 20,
         "da_interval": 10,
-        "obs_interval": 10,
+        "obs_interval": 1,
         "lyapnov": false,
         "les": true,
         "da_nud_rate": 0.1
