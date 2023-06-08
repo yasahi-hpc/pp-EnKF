@@ -11,5 +11,10 @@ else()
     add_subdirectory(heat3d)
     add_subdirectory(heat3d-mpi)
     add_subdirectory(vlp4d)
-    add_subdirectory(lbm2d-letkf)
+
+    # For the moment, disable CPU version.
+    # CPU optimized LETKF solver is not ready yet
+    if(BACKEND STREQUAL "CUDA")
+        add_subdirectory(lbm2d-letkf)
+    endif()
 endif()

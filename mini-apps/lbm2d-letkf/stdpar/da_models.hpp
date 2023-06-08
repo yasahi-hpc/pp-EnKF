@@ -5,7 +5,9 @@
 #include <iostream>
 #include <utils/string_utils.hpp>
 #include <utils/file_utils.hpp>
+#include <utils/io_utils.hpp>
 #include "../config.hpp"
+#include "../mpi_config.hpp"
 #include "data_vars.hpp"
 
 class DA_Model {
@@ -15,6 +17,7 @@ protected:
 
 public:
   DA_Model(Config& conf) : base_dir_name_("io/observed/ens0000"), conf_(conf) {}
+  DA_Model(Config& conf, MPIConfig& mpi_conf) : base_dir_name_("io/observed/ens0000"), conf_(conf) {}
   virtual ~DA_Model(){}
   virtual void initialize()=0;
   virtual void apply(std::unique_ptr<DataVars>& data_vars, const int it)=0;
@@ -23,12 +26,12 @@ public:
 
 protected:
   void setFileInfo() {
-    int nb_expected_files = 1;
+    int nb_expected_files = conf_.settings_.nbiter_ / conf_.settings_.io_interval_;
     bool expected_files_exist = true;
     std::string variables[3] = {"rho", "u", "v"};
     for(int it=0; it<nb_expected_files; it++) {
       for(int i=0; i<3; i++) {
-        auto file_name = base_dir_name_ + "/" + variables[i] + "_step" + Impl::zfill(it, 10) + ".dat";
+        auto file_name = base_dir_name_ + "/" + variables[i] + "obs_step" + Impl::zfill(it, 10) + ".dat";
         if(!Impl::isFileExists(file_name)) {
           expected_files_exist = false;
         }
@@ -39,36 +42,24 @@ protected:
 
   void load(std::unique_ptr<DataVars>& data_vars, const int it) {
     auto step = it / conf_.settings_.io_interval_;
-    // load u
-    {
-      auto file_name = base_dir_name_ + "/u_step" + Impl::zfill(step, 10) + ".dat";
-      auto file = std::ifstream(file_name, std::ios::binary);
-      assert(file.is_open());
-      auto* uo_ptr = data_vars->u_obs().data();
-      std::size_t size = sizeof(double) * data_vars->u_obs().size();
-      file.read(reinterpret_cast<char*>(uo_ptr), size);
-    }
-
-    // load v
-    {
-      auto file_name = base_dir_name_ + "/v_step" + Impl::zfill(step, 10) + ".dat";
-      auto file = std::ifstream(file_name, std::ios::binary);
-      assert(file.is_open());
-      auto* vo_ptr = data_vars->v_obs().data();
-      std::size_t size = sizeof(double) * data_vars->v_obs().size();
-      file.read(reinterpret_cast<char*>(vo_ptr), size);
-    }
-
-    // load rho
-    {
-      auto file_name = base_dir_name_ + "/rho_step" + Impl::zfill(step, 10) + ".dat";
-      auto file = std::ifstream(file_name, std::ios::binary);
-      assert(file.is_open());
-      auto* rho_ptr = data_vars->rho_obs().data();
-      std::size_t size = sizeof(double) * data_vars->rho_obs().size();
-      file.read(reinterpret_cast<char*>(rho_ptr), size);
-    }
+    if(step % conf_.settings_.da_interval_ != 0) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
+      return;
+    };
+    from_file(data_vars->rho_obs(), step);
+    from_file(data_vars->u_obs(), step);
+    from_file(data_vars->v_obs(), step);
   }
+
+private:
+  template <class ViewType>
+  void from_file(ViewType& value, const int step) {
+    auto file_name = base_dir_name_ + "/" + value.name() + "_step"
+                   + Impl::zfill(step, 10) + ".dat";
+    auto mdspan = value.mdspan();
+    Impl::from_binary(file_name, mdspan);
+  }
+
 };
 
 /* If DA is not applied at all
@@ -76,6 +67,7 @@ protected:
 class NonDA : public DA_Model {
 public:
   NonDA(Config& conf) : DA_Model(conf) {}
+  NonDA(Config& conf, MPIConfig& mpi_conf) : DA_Model(conf, mpi_conf) {}
   virtual ~NonDA(){}
   void initialize() {}
   void apply(std::unique_ptr<DataVars>& data_vars, const int it){};
