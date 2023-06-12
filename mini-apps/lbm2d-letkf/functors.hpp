@@ -3,6 +3,7 @@
 
 #include "config.hpp"
 
+MDSPAN_FORCE_INLINE_FUNCTION
 inline int periodic(const int i, const int n) {return (i+n)%n; }
 
 template <class mdspan3d_type, class mdspan2d_type>
@@ -20,6 +21,7 @@ public:
     c_ = conf_.settings_.c_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy, const int q) const {
     auto rho_tmp = rho_(ix, iy);
     auto u_tmp = u_(ix, iy);
@@ -28,6 +30,7 @@ public:
   }
 
 private:
+  MDSPAN_FORCE_INLINE_FUNCTION
   double feq(double rho, double u, double v, int q) const {
     auto weight = conf_.phys_.weights_[q];
     auto qx = conf_.phys_.q_[0][q];
@@ -56,6 +59,7 @@ public:
     dx_ = conf_.settings_.dx_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     const auto ixp1 = periodic(ix+1, nx_);
     const auto ixm1 = periodic(ix-1, nx_);
@@ -92,6 +96,7 @@ public:
     cs_sqr_ = cs * cs;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     const auto ixp1 = periodic(ix+1, nx_);
     const auto ixm1 = periodic(ix-1, nx_);
@@ -135,6 +140,7 @@ public:
     ny_ = static_cast<int>(ny);
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy, const int q) const {
     const auto qx = conf_.phys_.q_[0][q];
     const auto qy = conf_.phys_.q_[1][q];
@@ -162,6 +168,7 @@ public:
     dt_ = conf_.settings_.dt_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     double rho_tmp = 0.0;
     double u_tmp = 0.0;
@@ -206,6 +213,7 @@ public:
 
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     constexpr int Q = 9;
     double rho_tmp = 0.0;
@@ -267,6 +275,7 @@ public:
     is_les_ = conf_.settings_.is_les_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     // This Q must be a compile time constant, otherwise it fails.
     constexpr int Q = 9;
@@ -308,6 +317,7 @@ public:
   }
 
 private:
+  MDSPAN_FORCE_INLINE_FUNCTION
   double force_acc(double fx, double fy, int q, double rho, double u, double v, double omega) const {
     const auto weight = conf_.phys_.weights_[q];
     const auto qx = conf_.phys_.q_[0][q];
@@ -323,6 +333,7 @@ private:
     return ret;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   double feq(double rho, double u, double v, int q) const {
     auto weight = conf_.phys_.weights_[q];
     auto qx = conf_.phys_.q_[0][q];

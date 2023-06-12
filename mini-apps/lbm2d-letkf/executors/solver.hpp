@@ -66,19 +66,19 @@ public:
     timers_[TimerEnum::Total]->begin();
     for(int it=0; it<conf_.settings_.nbiter_; it++) {
       timers_[TimerEnum::MainLoop]->begin();
-
+ 
       timers_[TimerEnum::DA]->begin();
       da_model_->apply(data_vars_, it);
       timers_[TimerEnum::DA]->end();
-
+ 
       timers_[TimerEnum::Diag]->begin();
       model_->diag(data_vars_);
       timers_[TimerEnum::Diag]->end();
-
+ 
       timers_[TimerEnum::LBMSolver]->begin();
       model_->solve(data_vars_);
       timers_[TimerEnum::LBMSolver]->end();
-
+ 
       timers_[TimerEnum::MainLoop]->end();
     }
     timers_[TimerEnum::Total]->end();

@@ -25,6 +25,7 @@ public:
     c_ = conf_.settings_.c_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     auto rho_tmp = maybeLinearInterp2D(rho_, ix, iy);
     auto u_tmp   = maybeLinearInterp2D(u_, ix, iy);
@@ -38,8 +39,10 @@ public:
   }
 
 private:
+  MDSPAN_FORCE_INLINE_FUNCTION
   int periodic(const int i, const int n) const {return (i+n)%n; }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   double feq(double rho, double u, double v, int q) const {
     auto weight = conf_.phys_.weights_[q];
     auto qx = conf_.phys_.q_[0][q];
@@ -50,6 +53,7 @@ private:
     return weight * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   double maybeLinearInterp2D(const mdspan2d_type& var, int ix, int iy) const {
     if(obs_interval_ == 1) {
       return var(ix, iy);
@@ -117,6 +121,7 @@ public:
     n_obs_x_sq_ = n_obs_x_ * n_obs_x_;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy, const int ib) const {
     // [TO DO] allow layout abstraction
     const int ixy_obs = flatten(ix, iy);
@@ -150,7 +155,10 @@ public:
   }
 
 private:
+  MDSPAN_FORCE_INLINE_FUNCTION
   int flatten(const int ix, const int iy) const { return ix + iy * n_obs_x_; }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
   int obs_index(int idx_obs, int idx_stt) const {
     return (int(idx_stt / obs_interval_) + idx_obs - obs_local_) * obs_interval_;
   }
@@ -183,6 +191,7 @@ public:
     n_obs_x_ = obs_local_ * 2 + 1;
   }
 
+  MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy, const int ibx, const int iby) const {
     const int _iby = iby + y_offset_;
     const int _ix_obs = obs_index(ix, ibx);
@@ -205,11 +214,18 @@ public:
   }
 
 private:
+  MDSPAN_FORCE_INLINE_FUNCTION
   int periodic(const int i, const int n) const {return (i+n)%n; }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
   int flatten(const int ix, const int iy, const int nx) const { return ix + iy * nx; }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
   int obs_index(int idx_obs, int idx_stt) const {
     return (int(idx_stt / obs_interval_) + idx_obs - obs_local_) * obs_interval_;
   }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
   bool out_of_localization(const int ibx, const int iby, const int ix_obs, const int iy_obs) const {
     const int di = abs(ibx - ix_obs);
     const int dj = abs(iby - iy_obs);

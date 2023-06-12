@@ -2,7 +2,7 @@
 #define __CUDA_LINALG_HPP__
 
 #include <cassert>
-#include <vector>
+#include <thrust/device_vector.h>
 #include <experimental/mdspan>
 #include <cublas_v2.h>
 #include <cusolver_common.h>
@@ -332,8 +332,10 @@ namespace Impl {
                       batchSize
                      );
   
-    std::vector<value_type> workspace(lwork);
-    std::vector<int> info(batchSize, 0);
+    thrust::device_vector<value_type> workspace(lwork);
+    thrust::device_vector<int> info(batchSize, 0);
+    auto workspace_data = (value_type *)thrust::raw_pointer_cast(workspace.data());
+    auto info_data = (int *)thrust::raw_pointer_cast(info.data());
   
     auto status = syevjBatched(
                    handle,
@@ -341,25 +343,11 @@ namespace Impl {
                    uplo,
                    a.extent(0), a.data_handle(),
                    v.extent(0), v.data_handle(),
-                   workspace.data(), workspace.size(),
-                   info.data(),
+                   workspace_data, workspace.size(),
+                   info_data,
                    params,
                    batchSize
                   );
-
-    /*
-    auto status = syevjBatched(
-                   handle,
-                   CUSOLVER_EIG_MODE_VECTOR,
-                   CUBLAS_FILL_MODE_LOWER,
-                   a.extent(0), a.data_handle(),
-                   v.extent(0), v.data_handle(),
-                   workspace.data(), workspace.size(),
-                   info.data(),
-                   params,
-                   batchSize
-                  );
-     */
 
     cudaDeviceSynchronize();
     cusolverDnDestroy(handle);
