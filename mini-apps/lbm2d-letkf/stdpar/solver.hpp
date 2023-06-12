@@ -7,6 +7,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <utils/commandline_utils.hpp>
+#include "../timer.hpp"
 #include "../config.hpp"
 #include "../mpi_config.hpp"
 #include "models.hpp"
@@ -22,6 +23,7 @@ class Solver {
   std::unique_ptr<Model> model_;
   std::unique_ptr<DA_Model> da_model_;
   std::unique_ptr<DataVars> data_vars_;
+  std::vector<Timer*> timers_;
 
 public:
   void initialize(int* argc, char*** argv){
@@ -31,6 +33,9 @@ public:
 
     // Initialize MPI
     mpi_conf_.initialize(argc, argv);
+
+    // Declare timers
+    defineTimers(timers_);
 
     // Initialize Configuration from the input json file
     initialize_conf(filename, conf_);
@@ -58,18 +63,47 @@ public:
   };
 
   void run(){
+    timers_[TimerEnum::Total]->begin();
     for(int it=0; it<conf_.settings_.nbiter_; it++) {
+      timers_[TimerEnum::MainLoop]->begin();
+
+      timers_[TimerEnum::DA]->begin();
       da_model_->apply(data_vars_, it);
+      timers_[TimerEnum::DA]->end();
+
+      timers_[TimerEnum::Diag]->begin();
       model_->diag(data_vars_);
+      timers_[TimerEnum::Diag]->end();
+
+      timers_[TimerEnum::LBMSolver]->begin();
       model_->solve(data_vars_);
+      timers_[TimerEnum::LBMSolver]->end();
+
+      timers_[TimerEnum::MainLoop]->end();
     }
+    timers_[TimerEnum::Total]->end();
   }
 
   void finalize(){
+    if(mpi_conf_.is_master()) {
+      printTimers(timers_);
+      freeTimers(timers_);
+      printMLUPS("core", timers_[TimerEnum::LBMSolver]);
+      printMLUPS("total", timers_[TimerEnum::MainLoop]);
+    }
     mpi_conf_.finalize();
   }
 
 private:
+  void printMLUPS(const std::string name, Timer *timer) {
+    auto [nx, ny] = conf_.settings_.n_;
+    auto nbiter = conf_.settings_.nbiter_;
+
+    std::cout << name + " MLUPS: " <<
+      1e-6 * nx * ny * nbiter / timer->seconds()
+      << std::endl;
+  }
+
   void initialize_conf(std::string& filename, Config& conf) {
     std::ifstream f(filename);
     assert(f.is_open());
