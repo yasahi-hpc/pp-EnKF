@@ -50,6 +50,7 @@ void test_copy_constructor() {
   reference.updateSelf();
 
   // Check if the host data are identical
+  ASSERT_EQ( simple.size(), reference.size() );
   for(int j=0; j<m; j++) {
     for(int i=0; i<n; i++) {
       ASSERT_EQ( simple(i, j), reference(i, j) );
@@ -83,6 +84,7 @@ void test_assignment_operator() {
   assinged_via_simple.updateSelf();
 
   // Check if the host data are identical
+  ASSERT_EQ( assinged_via_simple.size(), reference.size() );
   for(int j=0; j<m; j++) {
     for(int i=0; i<n; i++) {
       ASSERT_EQ( assinged_via_simple(i, j), reference(i, j) );
@@ -115,6 +117,7 @@ void test_move_constructor() {
   simple = std::move(moved_reference);
 
   // Check if the host data are identical
+  ASSERT_EQ( simple.size(), reference.size() );
   for(int j=0; j<m; j++) {
     for(int i=0; i<n; i++) {
       ASSERT_EQ( simple(i, j), reference(i, j) );
@@ -155,6 +158,7 @@ void test_move_assignment_operator() {
   reference.updateSelf();
 
   // Check if the host data are identical
+  ASSERT_EQ( simple.size(), reference.size() );
   for(int j=0; j<m; j++) {
     for(int i=0; i<n; i++) {
       ASSERT_EQ( simple(i, j), reference(i, j) );
@@ -198,6 +202,8 @@ void test_swap() {
   a.swap(b);
 
   // Check meta data are identical
+  ASSERT_EQ( a.size(), a_ref.size() );
+  ASSERT_EQ( b.size(), b_ref.size() );
   ASSERT_EQ( a.name(), a_ref.name() );
   ASSERT_EQ( b.name(), b_ref.name() );
 
