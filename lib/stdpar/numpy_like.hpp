@@ -6,11 +6,55 @@
 #include <array>
 #include <vector>
 #include <experimental/mdspan>
-#include <cublas_v2.h>
 #include "../Iteration.hpp"
 #include "Parallel_For.hpp"
 
 namespace Impl {
+  template <typename ElementType>
+  inline std::vector<ElementType> arange(const ElementType start,
+                                         const ElementType stop,
+                                         const ElementType step=1
+                                        ) {
+    const size_t length = ceil((stop - start) / step);
+    std::vector<ElementType> result;
+    ElementType delta = (stop - start) / length;
+    
+    // thrust::sequence
+    for(auto i=0; i<length; i++) {
+      ElementType value = start + delta*i;
+      result.push_back(value);
+    }
+    return result;
+  }
+
+  template <typename OutputType, typename InputType>
+  inline std::vector<OutputType> linspace(const InputType start,
+                                          const InputType stop,
+                                          size_t num=50,
+                                          bool endpoint=true
+                                         ) {
+    assert(num >= 1);
+    std::vector<OutputType> result;
+
+    // If endpoint is true, last point is included.
+    size_t length = endpoint ? (num-1) : num;
+    OutputType delta = (stop - start) / static_cast<OutputType>(length);
+
+    if(endpoint) {
+      for(auto i=0; i<num-1; i++) {
+        OutputType value = start + delta*i;
+        result.push_back(value);
+      }
+      result.push_back(stop);
+    } else {
+      for(auto i=0; i<num; i++) {
+        OutputType value = start + delta*i;
+        result.push_back(value);
+      }
+    }
+    return result;
+  }
+
   template <class InputView, class OutputView,
             std::enable_if_t<InputView::rank()==3 && OutputView::rank()==2, std::nullptr_t> = nullptr>
   void mean_(InputView& in, OutputView& out, int axis) {
@@ -139,10 +183,9 @@ namespace Impl {
             const typename InoutView::value_type beta=1,
             const typename InoutView::value_type alpha=1) {
 
-      typename MatrixView::value_type
     // Inplace: 2D + 0D -> 2D (broadcasting)
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
 
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
@@ -161,7 +204,7 @@ namespace Impl {
     assert(x.extents() == z.extents());
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         z(i0, i1) = alpha * x(i0, i1) + beta * y;
@@ -180,7 +223,7 @@ namespace Impl {
     assert(x.extent(axis) == y.extent(0));
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
@@ -202,7 +245,7 @@ namespace Impl {
     assert(x.extents() == z.extents());
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
@@ -255,7 +298,7 @@ namespace Impl {
     const auto ny0 = y.extent(0), ny1 = y.extent(1);
 
     if( x.extents() == y.extents() ) {
-      IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
+      IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
         [=](const int i0, const int i1) {
           z(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
@@ -496,7 +539,9 @@ namespace Impl {
     }
   }
 
-  template <class InoutView, class InputView>
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()>=1 && InputView::rank()>=1, std::nullptr_t> = nullptr>
   void axpy(InoutView& x, const InputView& y, typename InoutView::value_type beta=1, typename InoutView::value_type alpha=1) {
     /* Compute y = alpha * x + beta * y (In-place) */
     static_assert( std::is_same_v<typename InoutView::value_type, typename InputView::value_type> );
@@ -507,7 +552,9 @@ namespace Impl {
     axpy_(x, y, beta, alpha);
   }
 
-  template <class InoutView, class InputView>
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()>=1 && InputView::rank()>=1, std::nullptr_t> = nullptr>
   void axpy(const InoutView& x, const InputView& y, InoutView& z, typename InoutView::value_type beta=1, typename InoutView::value_type alpha=1) {
     /* Compute z = alpha * x + beta * y (Out-place) */
     static_assert( std::is_same_v<typename InoutView::value_type, typename InputView::value_type> );
@@ -546,7 +593,7 @@ namespace Impl {
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
-        ptr_a[idx] = static_cast<value_type>(0);
+        ptr_out[idx] = static_cast<value_type>(0);
     });
   }
 
@@ -555,7 +602,7 @@ namespace Impl {
     using value_type = InoutView::value_type;
     value_type* ptr_a = a.data_handle();
     const auto n = a.size();
-    IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
         ptr_a[idx] = static_cast<value_type>(1);
@@ -573,7 +620,7 @@ namespace Impl {
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
-        ptr_a[idx] = static_cast<value_type>(1);
+        ptr_out[idx] = static_cast<value_type>(1);
     });
   }
 
