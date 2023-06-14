@@ -6,7 +6,6 @@
 #include <array>
 #include <vector>
 #include <experimental/mdspan>
-#include <cublas_v2.h>
 #include "../Iteration.hpp"
 #include "Parallel_For.hpp"
 
@@ -133,16 +132,112 @@ namespace Impl {
 
   /* axpy */
   template <class InoutView,
+            std::enable_if_t<InoutView::rank()==1, std::nullptr_t> = nullptr>
+  void axpy(InoutView& x,
+            const typename InoutView::value_type& y,
+            const typename InoutView::value_type beta=1,
+            const typename InoutView::value_type alpha=1) {
+
+    // Inplace: 1D + 0D -> 1D (broadcasting)
+    const auto n0 = x.extent(0);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, n0);
+
+    Impl::for_each(policy1d,
+      [=](const int i0) {
+        x(i0) = alpha * x(i0) + beta * y;
+      });
+  }
+
+  template <class InoutView,
+            std::enable_if_t<InoutView::rank()==1, std::nullptr_t> = nullptr>
+  void axpy(const InoutView& x,
+            const typename InoutView::value_type& y,
+            InoutView& z,
+            const typename InoutView::value_type beta=1,
+            const typename InoutView::value_type alpha=1) {
+    // Outplace: 1D + 0D -> 1D (broadcasting)
+    assert(x.extents() == z.extents());
+
+    const auto n0 = x.extent(0);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, n0);
+
+    Impl::for_each(policy1d,
+      [=](const int i0) {
+        z(i0) = alpha * x(i0) + beta * y;
+      });
+  }
+
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()==1 && InputView::rank()==1, std::nullptr_t> = nullptr>
+  void axpy_(InoutView& x,
+             const InputView& y,
+             const typename InoutView::value_type beta=1,
+             const typename InoutView::value_type alpha=1) {
+    // Inplace: 1D + 1D -> 1D
+    const auto nx0 = x.extent(0);
+    const auto ny0 = y.extent(0);
+
+    if( x.extents() == y.extents() ) {
+      IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
+
+      Impl::for_each(policy1d,
+        [=](const int i0) {
+          x(i0) = alpha * x(i0) + beta * y(i0);
+        });
+    } else if( ny0 == 1 && ny0 < nx0 ) {
+      IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
+      Impl::for_each(policy1d,
+        [=](const int i0) {
+          x(i0) = alpha * x(i0) + beta * y(0);
+        });
+    } else {
+      std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
+    }
+  }
+
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()==1 && InputView::rank()==1, std::nullptr_t> = nullptr>
+  void axpy_(const InoutView& x,
+             const InputView& y,
+             InoutView& z,
+             const typename InoutView::value_type beta=1,
+             const typename InoutView::value_type alpha=1) {
+    // Outplace: 1D + 1D -> 1D
+    assert(x.extents() == z.extents());
+    const auto nx0 = x.extent(0);
+    const auto ny0 = y.extent(0);
+
+    if( x.extents() == y.extents() ) {
+      IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
+
+      Impl::for_each(policy1d,
+        [=](const int i0) {
+          z(i0) = alpha * x(i0) + beta * y(i0);
+        });
+    } else if( ny0 == 1 && ny0 < nx0 ) {
+      IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
+      Impl::for_each(policy1d,
+        [=](const int i0) {
+          z(i0) = alpha * x(i0) + beta * y(0);
+        });
+    } else {
+      std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
+    }
+  }
+
+  // Axpy 2D (maybe better to use squeeze or reshape and reuse 1D version)
+  template <class InoutView,
             std::enable_if_t<InoutView::rank()==2, std::nullptr_t> = nullptr>
   void axpy(InoutView& x, 
             const typename InoutView::value_type& y,
             const typename InoutView::value_type beta=1,
             const typename InoutView::value_type alpha=1) {
 
-      typename MatrixView::value_type
     // Inplace: 2D + 0D -> 2D (broadcasting)
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
 
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
@@ -161,7 +256,7 @@ namespace Impl {
     assert(x.extents() == z.extents());
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         z(i0, i1) = alpha * x(i0, i1) + beta * y;
@@ -180,7 +275,7 @@ namespace Impl {
     assert(x.extent(axis) == y.extent(0));
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
@@ -202,7 +297,7 @@ namespace Impl {
     assert(x.extents() == z.extents());
 
     const auto n0 = x.extent(0), n1 = x.extent(1);
-    IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
+    IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
       [=](const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
@@ -222,7 +317,7 @@ namespace Impl {
     const auto ny0 = y.extent(0), ny1 = y.extent(1);
 
     if( x.extents() == y.extents() ) {
-      IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
+      IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
         [=](const int i0, const int i1) {
           x(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
@@ -234,8 +329,11 @@ namespace Impl {
       auto sub_y = submdspan(y, std::experimental::full_extent, 0);
       axpy_(x, sub_y, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
-      auto sub_y = y(0, 0);
-      axpy(x, sub_y, beta, alpha);
+      IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
+      Impl::for_each(policy2d,
+        [=](const int i0, const int i1) {
+          x(i0, i1) = alpha * x(i0, i1) + beta * y(0, 0);
+        });
     } else {
       std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
     }
@@ -255,7 +353,7 @@ namespace Impl {
     const auto ny0 = y.extent(0), ny1 = y.extent(1);
 
     if( x.extents() == y.extents() ) {
-      IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
+      IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
         [=](const int i0, const int i1) {
           z(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
@@ -267,8 +365,11 @@ namespace Impl {
       auto sub_y = submdspan(y, std::experimental::full_extent, 0);
       axpy_(x, sub_y, z, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
-      auto sub_y = y(0, 0);
-      axpy(x, sub_y, z, beta, alpha);
+      IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
+      Impl::for_each(policy2d,
+        [=](const int i0, const int i1) {
+          z(i0, i1) = alpha * x(i0, i1) + beta * y(0, 0);
+        });
     } else {
       std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
     }
@@ -425,7 +526,6 @@ namespace Impl {
         [=](const int i0, const int i1, const int i2) {
           x(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(i0, i1, i2);
         });
-
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == nx2 ) {
       auto sub_y = submdspan(y, 0, std::experimental::full_extent, std::experimental::full_extent);
       axpy_(x, sub_y, beta, alpha, 0);
@@ -445,8 +545,11 @@ namespace Impl {
       auto sub_y = submdspan(y, std::experimental::full_extent, std::experimental::full_extent, 0);
       axpy_(x, sub_y, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = y(0, 0, 0);
-      axpy(x, sub_y, beta, alpha);
+      IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
+      Impl::for_each(policy3d,
+        [=](const int i0, const int i1, const int i2) {
+          x(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(0, 0, 0);
+        });
     } else {
       std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
     }
@@ -489,14 +592,19 @@ namespace Impl {
       auto sub_y = submdspan(y, std::experimental::full_extent, std::experimental::full_extent, 0);
       axpy_(x, sub_y, z, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = y(0, 0, 0);
-      axpy(x, sub_y, z, beta, alpha);
+      IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
+      Impl::for_each(policy3d,
+        [=](const int i0, const int i1, const int i2) {
+          z(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(0, 0, 0);
+        });
     } else {
       std::runtime_error("Cannot broadcast y to x. Check the shapes of x and y.");
     }
   }
 
-  template <class InoutView, class InputView>
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()>=1 && InputView::rank()>=1, std::nullptr_t> = nullptr>
   void axpy(InoutView& x, const InputView& y, typename InoutView::value_type beta=1, typename InoutView::value_type alpha=1) {
     /* Compute y = alpha * x + beta * y (In-place) */
     static_assert( std::is_same_v<typename InoutView::value_type, typename InputView::value_type> );
@@ -507,7 +615,9 @@ namespace Impl {
     axpy_(x, y, beta, alpha);
   }
 
-  template <class InoutView, class InputView>
+  template <class InoutView,
+            class InputView,
+            std::enable_if_t<InoutView::rank()>=1 && InputView::rank()>=1, std::nullptr_t> = nullptr>
   void axpy(const InoutView& x, const InputView& y, InoutView& z, typename InoutView::value_type beta=1, typename InoutView::value_type alpha=1) {
     /* Compute z = alpha * x + beta * y (Out-place) */
     static_assert( std::is_same_v<typename InoutView::value_type, typename InputView::value_type> );
@@ -546,7 +656,7 @@ namespace Impl {
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
-        ptr_a[idx] = static_cast<value_type>(0);
+        ptr_out[idx] = static_cast<value_type>(0);
     });
   }
 
@@ -555,7 +665,7 @@ namespace Impl {
     using value_type = InoutView::value_type;
     value_type* ptr_a = a.data_handle();
     const auto n = a.size();
-    IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
         ptr_a[idx] = static_cast<value_type>(1);
@@ -573,7 +683,7 @@ namespace Impl {
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
       [=](const int idx) {
-        ptr_a[idx] = static_cast<value_type>(1);
+        ptr_out[idx] = static_cast<value_type>(1);
     });
   }
 

@@ -7,6 +7,7 @@
 #include <thrust/execution_policy.h>
 #include "../Iteration.hpp"
 
+namespace stdex = std::experimental;
 using counting_iterator = thrust::counting_iterator<int>;
 
 namespace Impl {
