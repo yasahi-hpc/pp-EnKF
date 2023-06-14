@@ -22,6 +22,7 @@ endif()
 # Libraries
 add_subdirectory(lib)
 add_subdirectory(ext_lib/json)
+add_subdirectory(ext_lib/eigen)
 
 # Test
 set(BUILD_TESTING ${PRIVATE_BUILD_TESTING})

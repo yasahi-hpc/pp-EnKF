@@ -4,7 +4,7 @@
 #include <tuple>
 #include <stdpar/Parallel_For.hpp>
 #include <stdpar/numpy_like.hpp>
-#include <stdpar/linalg.hpp>
+#include <linalg.hpp>
 #include "types.hpp"
 #include "../mpi_config.hpp"
 
