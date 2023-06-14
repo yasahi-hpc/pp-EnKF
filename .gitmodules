@@ -7,3 +7,6 @@
 [submodule "ext_lib/json"]
 	path = ext_lib/json
 	url = https://github.com/nlohmann/json.git
+[submodule "ext_lib/eigen"]
+	path = ext_lib/eigen
+	url = https://gitlab.com/libeigen/eigen.git
