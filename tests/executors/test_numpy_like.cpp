@@ -1,83 +1,21 @@
 #include <random>
 #include <functional>
 #include <gtest/gtest.h>
-#include <stdpar/numpy_like.hpp>
+#include <executors/numpy_like.hpp>
 #include "Types.hpp"
-
-TEST( ARANGE, INT ) {
-  const int start = 0;
-  const int stop = 5;
-  const int step = 1;
-
-  // np.arange(5) or np.arange(0, 5, 1)
-  auto a = Impl::arange(start, stop);
-  auto b = Impl::arange(start, stop, step);
-  const size_t len = a.size();
-
-  ASSERT_EQ( a.size(), b.size() );
-
-  for(int i=0; i<len; i++) {
-    ASSERT_EQ(a.at(i), i);
-    ASSERT_EQ(b.at(i), i);
-  }
-}
-
-TEST( ARANGE, FLOAT ) {
-  const double start = -10.;
-  const double stop = 10.;
-  const double step = 0.5;
-
-  // np.arange(start, stop, step)
-  auto a = Impl::arange(start, stop, step);
-  const int len = a.size();
-
-  const int expected_len = ceil( (stop-start) / step );
-  const double expected_dt = (stop-start) / static_cast<double>(expected_len);
-  const auto dt = a.at(1) - a.at(0);
-
-  ASSERT_EQ( typeid(decltype(a.front())), typeid(double) );
-  ASSERT_EQ( len, expected_len );
-  ASSERT_EQ( dt, expected_dt );
-  ASSERT_EQ( a.front(), start );
-  ASSERT_EQ( a.back(), stop-step ); // because the last element should be unreached
-}
-
-TEST( LINSPACE, INT ) {
-  const int start = 0;
-  const int stop = 1;
-
-  // np.linspace(0, 1)
-  auto a = Impl::linspace<double>(start, stop);
-  const size_t len = a.size();
-  const size_t expected_len = 50;
-  const double expected_dt = static_cast<double>(stop-start) / static_cast<double>(expected_len-1);
-  const auto dt = a.at(1) - a.at(0);
-
-  ASSERT_EQ( typeid(decltype(a.front())), typeid(double) );
-  ASSERT_EQ( len, expected_len );
-  ASSERT_EQ( dt, expected_dt );
-  ASSERT_EQ( a.front(), static_cast<double>(start) );
-  ASSERT_EQ( a.back(), static_cast<double>(stop) ); // because the last element should be included
-}
 
 TEST( MEAN, 3D_to_3D ) {
   const std::size_t n = 3, m = 2, l = 5;
-  std::vector<double> _a(n*m*l);
-  std::vector<double> _b0(m*l);
-  std::vector<double> _b1(n*l);
-  std::vector<double> _b2(n*m);
-  std::vector<double> _ref0(m*l);
-  std::vector<double> _ref1(n*l);
-  std::vector<double> _ref2(n*m);
+  View3D<double> a("a", n, m, l);
+  View3D<double> b0("b0", 1, m, l);
+  View3D<double> b1("b1", n, 1, l);
+  View3D<double> b2("b2", n, m, 1);
 
-  Mdspan3D<double> a(_a.data(), n, m, l);
-  Mdspan3D<double> b0(_b0.data(), 1, m, l);
-  Mdspan3D<double> b1(_b1.data(), n, 1, l);
-  Mdspan3D<double> b2(_b2.data(), n, m, 1);
+  View3D<double> ref0("ref0", 1, m, l);
+  View3D<double> ref1("ref1", n, 1, l);
+  View3D<double> ref2("ref2", n, m, 1);
 
-  Mdspan3D<double> ref0(_ref0.data(), 1, m, l);
-  Mdspan3D<double> ref1(_ref1.data(), n, 1, l);
-  Mdspan3D<double> ref2(_ref2.data(), n, m, 1);
+  constexpr double eps = 1.e-13;
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -91,6 +29,7 @@ TEST( MEAN, 3D_to_3D ) {
       }
     }
   }
+  a.updateDevice();
 
   // Reduction along first axis
   for(int iz=0; iz<l; iz++) {
@@ -102,11 +41,14 @@ TEST( MEAN, 3D_to_3D ) {
       ref0(0, iy, iz) = sum / static_cast<double>(n);
     }
   }
-  Impl::mean(a, b0, 0);
+  auto _a = a.mdspan();
+  auto _b0 = b0.mdspan();
+  Impl::mean(_a, _b0, 0);
+  b0.updateSelf();
 
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
-      ASSERT_DOUBLE_EQ( b0(0, iy, iz), ref0(0, iy, iz) );
+      EXPECT_NEAR( b0(0, iy, iz), ref0(0, iy, iz), eps );
     }
   }
 
@@ -120,11 +62,13 @@ TEST( MEAN, 3D_to_3D ) {
       ref1(ix, 0, iz) = sum / static_cast<double>(m);
     }
   }
-  Impl::mean(a, b1, 1);
+  auto _b1 = b1.mdspan();
+  Impl::mean(_a, _b1, 1);
+  b1.updateSelf();
 
   for(int iz=0; iz<l; iz++) {
     for(int ix=0; ix<n; ix++) {
-      ASSERT_DOUBLE_EQ( b1(ix, 0, iz), ref1(ix, 0, iz) );
+      EXPECT_NEAR( b1(ix, 0, iz), ref1(ix, 0, iz), eps );
     }
   }
 
@@ -138,33 +82,29 @@ TEST( MEAN, 3D_to_3D ) {
       ref2(ix, iy, 0) = sum / static_cast<double>(l);
     }
   }
-  Impl::mean(a, b2, -1);
+  auto _b2 = b2.mdspan();
+  Impl::mean(_a, _b2, -1);
+  b2.updateSelf();
 
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<n; ix++) {
-      ASSERT_DOUBLE_EQ( b2(ix, iy, 0), ref2(ix, iy, 0) );
+      EXPECT_NEAR( b2(ix, iy, 0), ref2(ix, iy, 0), eps );
     }
   }
 }
 
 TEST( MEAN, 3D_to_2D ) {
   const std::size_t n = 3, m = 2, l = 5;
-  std::vector<double> _a(n*m*l);
-  std::vector<double> _b0(m*l);
-  std::vector<double> _b1(n*l);
-  std::vector<double> _b2(n*m);
-  std::vector<double> _ref0(m*l);
-  std::vector<double> _ref1(n*l);
-  std::vector<double> _ref2(n*m);
+  View3D<double> a("a", n, m, l);
+  View2D<double> b0("b0", m, l);
+  View2D<double> b1("b1", n, l);
+  View2D<double> b2("b2", n, m);
 
-  Mdspan3D<double> a(_a.data(), n, m, l);
-  Mdspan2D<double> b0(_b0.data(), m, l);
-  Mdspan2D<double> b1(_b1.data(), n, l);
-  Mdspan2D<double> b2(_b2.data(), n, m);
+  View2D<double> ref0("ref0", m, l);
+  View2D<double> ref1("ref1", n, l);
+  View2D<double> ref2("ref2", n, m);
 
-  Mdspan2D<double> ref0(_ref0.data(), m, l);
-  Mdspan2D<double> ref1(_ref1.data(), n, l);
-  Mdspan2D<double> ref2(_ref2.data(), n, m);
+  constexpr double eps = 1.e-13;
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -178,6 +118,7 @@ TEST( MEAN, 3D_to_2D ) {
       }
     }
   }
+  a.updateDevice();
 
   // Reduction along first axis
   for(int iz=0; iz<l; iz++) {
@@ -189,11 +130,14 @@ TEST( MEAN, 3D_to_2D ) {
       ref0(iy, iz) = sum / static_cast<double>(n);
     }
   }
-  Impl::mean(a, b0, 0);
+  auto _a = a.mdspan();
+  auto _b0 = b0.mdspan();
+  Impl::mean(_a, _b0, 0);
+  b0.updateSelf();
 
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
-      ASSERT_DOUBLE_EQ( b0(iy, iz), ref0(iy, iz) );
+      EXPECT_NEAR( b0(iy, iz), ref0(iy, iz), eps );
     }
   }
 
@@ -207,11 +151,13 @@ TEST( MEAN, 3D_to_2D ) {
       ref1(ix, iz) = sum / static_cast<double>(m);
     }
   }
-  Impl::mean(a, b1, 1);
+  auto _b1 = b1.mdspan();
+  Impl::mean(_a, _b1, 1);
+  b1.updateSelf();
 
   for(int iz=0; iz<l; iz++) {
     for(int ix=0; ix<n; ix++) {
-      ASSERT_DOUBLE_EQ( b1(ix, iz), ref1(ix, iz) );
+      EXPECT_NEAR( b1(ix, iz), ref1(ix, iz), eps );
     }
   }
 
@@ -225,11 +171,13 @@ TEST( MEAN, 3D_to_2D ) {
       ref2(ix, iy) = sum / static_cast<double>(l);
     }
   }
-  Impl::mean(a, b2, -1);
+  auto _b2 = b2.mdspan();
+  Impl::mean(_a, _b2, -1);
+  b2.updateSelf();
 
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<n; ix++) {
-      ASSERT_DOUBLE_EQ( b2(ix, iy), ref2(ix, iy) );
+      EXPECT_NEAR( b2(ix, iy), ref2(ix, iy), eps );
     }
   }
 }
@@ -239,37 +187,25 @@ TEST( AXPY, 1D_plus_1D ) {
   const double alpha = 1.5, beta = 1.71;
   const double scalar = 2.31;
 
-  std::vector<double> _x0(n);
-  std::vector<double> _x1(n);
-  std::vector<double> _x2(n);
-  std::vector<double> _y0(n);
-  std::vector<double> _y1(1);
-  std::vector<double> _z0(n);
-  std::vector<double> _z1(n);
-  std::vector<double> _z2(n);
-  std::vector<double> _ref0(n);
-  std::vector<double> _ref1(n);
-  std::vector<double> _ref2(n);
+  View1D<double> x0("x0", n);
+  View1D<double> x1("x1", n);
+  View1D<double> x2("x2", n);
+  View1D<double> y0("y0", n);
+  View1D<double> y1("y1", 1);
+  View1D<double> z0("z0", n);
+  View1D<double> z1("z1", n);
+  View1D<double> z2("z2", n);
+  View1D<double> ref0("ref0", n);
+  View1D<double> ref1("ref1", n);
+  View1D<double> ref2("ref2", n);
 
-  Mdspan1D<double> x0(_x0.data(), n);
-  Mdspan1D<double> x1(_x1.data(), n);
-  Mdspan1D<double> x2(_x2.data(), n);
-  Mdspan1D<double> y0(_y0.data(), n);
-  Mdspan1D<double> y1(_y1.data(), 1);
-  Mdspan1D<double> z0(_z0.data(), n);
-  Mdspan1D<double> z1(_z1.data(), n);
-  Mdspan1D<double> z2(_z2.data(), n);
-
-  Mdspan1D<double> ref0(_ref0.data(), n);
-  Mdspan1D<double> ref1(_ref1.data(), n);
-  Mdspan1D<double> ref2(_ref2.data(), n);
+  constexpr double eps = 1.e-13;
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
   auto rand_gen = std::bind(rand_dist, rand_engine);
 
   // Set random numbers to 1D view
-  // ref = alpha * x + beta * y;
   for(int ix=0; ix<n; ix++) {
     x0(ix) = rand_gen();
     x1(ix) = rand_gen();
@@ -279,6 +215,12 @@ TEST( AXPY, 1D_plus_1D ) {
 
   y1(0) = rand_gen();
 
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  y0.updateDevice();
+  y1.updateDevice();
+
   // ref = alpha * x + beta * y;
   for(int ix=0; ix<n; ix++) {
     ref0(ix) = alpha * x0(ix) + beta * y0(ix);
@@ -287,20 +229,31 @@ TEST( AXPY, 1D_plus_1D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x0, y0, z0, beta, alpha);
-  Impl::axpy(x1, y1, z1, beta, alpha);
-  Impl::axpy(x2, scalar, z2, beta, alpha);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _y0 = y0.mdspan();
+  auto _y1 = y1.mdspan();
+  auto _z0 = z0.mdspan();
+  auto _z1 = z1.mdspan();
+  auto _z2 = z2.mdspan();
+  Impl::axpy(_x0, _y0, _z0, beta, alpha);
+  Impl::axpy(_x1, _y1, _z1, beta, alpha);
+  Impl::axpy(_x2, scalar, _z2, beta, alpha);
+  Impl::axpy(_x0, _y0, beta, alpha);
+  Impl::axpy(_x1, _y1, beta, alpha);
+  Impl::axpy(_x2, scalar, beta, alpha);
 
-  Impl::axpy(x0, y0, beta, alpha);
-  Impl::axpy(x1, y1, beta, alpha);
-  Impl::axpy(x2, scalar, beta, alpha);
-
-  constexpr double eps = 1.e-13;
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  z0.updateSelf();
+  z1.updateSelf();
+  z2.updateSelf();
   for(int ix=0; ix<n; ix++) {
     EXPECT_NEAR( x0(ix), ref0(ix), eps );
     EXPECT_NEAR( x1(ix), ref1(ix), eps );
     EXPECT_NEAR( x2(ix), ref2(ix), eps );
-
     EXPECT_NEAR( z0(ix), ref0(ix), eps );
     EXPECT_NEAR( z1(ix), ref1(ix), eps );
     EXPECT_NEAR( z2(ix), ref2(ix), eps );
@@ -311,38 +264,25 @@ TEST( AXPY, 2D_plus_1D ) {
   const std::size_t n = 3, m = 2;
   const double alpha = 1.5, beta = 1.71;
   const double scalar = 2.31;
-  std::vector<double> _x0(n*m);
-  std::vector<double> _x1(n*m);
-  std::vector<double> _x2(n*m);
-  std::vector<double> _x3(n*m);
-  std::vector<double> _y0(n);
-  std::vector<double> _y1(m);
-  std::vector<double> _y2(1);
-  std::vector<double> _z0(n*m);
-  std::vector<double> _z1(n*m);
-  std::vector<double> _z2(n*m);
-  std::vector<double> _z3(n*m);
-  std::vector<double> _ref0(n*m);
-  std::vector<double> _ref1(n*m);
-  std::vector<double> _ref2(n*m);
-  std::vector<double> _ref3(n*m);
 
-  Mdspan2D<double> x0(_x0.data(), n, m);
-  Mdspan2D<double> x1(_x1.data(), n, m);
-  Mdspan2D<double> x2(_x2.data(), n, m);
-  Mdspan2D<double> x3(_x3.data(), n, m);
-  Mdspan2D<double> y0(_y0.data(), n, 1);
-  Mdspan2D<double> y1(_y1.data(), 1, m);
-  Mdspan2D<double> y2(_y2.data(), 1, 1);
-  Mdspan2D<double> z0(_z0.data(), n, m);
-  Mdspan2D<double> z1(_z1.data(), n, m);
-  Mdspan2D<double> z2(_z2.data(), n, m);
-  Mdspan2D<double> z3(_z3.data(), n, m);
+  View2D<double> x0("x0", n, m);
+  View2D<double> x1("x1", n, m);
+  View2D<double> x2("x2", n, m);
+  View2D<double> x3("x3", n, m);
+  View2D<double> y0("y0", n, 1);
+  View2D<double> y1("y1", 1, m);
+  View2D<double> y2("y2", 1, 1);
+  View2D<double> z0("z0", n, m);
+  View2D<double> z1("z1", n, m);
+  View2D<double> z2("z2", n, m);
+  View2D<double> z3("z3", n, m);
 
-  Mdspan2D<double> ref0(_ref0.data(), n, m);
-  Mdspan2D<double> ref1(_ref1.data(), n, m);
-  Mdspan2D<double> ref2(_ref2.data(), n, m);
-  Mdspan2D<double> ref3(_ref3.data(), n, m);
+  View2D<double> ref0("ref0", n, m);
+  View2D<double> ref1("ref1", n, m);
+  View2D<double> ref2("ref2", n, m);
+  View2D<double> ref3("ref3", n, m);
+
+  constexpr double eps = 1.e-13;
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -369,6 +309,14 @@ TEST( AXPY, 2D_plus_1D ) {
 
   y2(0, 0) = rand_gen();
 
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  x3.updateDevice();
+  y0.updateDevice();
+  y1.updateDevice();
+  y2.updateDevice();
+
   // ref = alpha * x + beta * y;
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<n; ix++) {
@@ -380,26 +328,47 @@ TEST( AXPY, 2D_plus_1D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x0, y0, z0, beta, alpha);
-  Impl::axpy(x1, y1, z1, beta, alpha);
-  Impl::axpy(x2, y2, z2, beta, alpha);
-  Impl::axpy(x3, scalar, z3, beta, alpha);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _x3 = x3.mdspan();
+  auto _y0 = y0.mdspan();
+  auto _y1 = y1.mdspan();
+  auto _y2 = y2.mdspan();
+  auto _z0 = z0.mdspan();
+  auto _z1 = z1.mdspan();
+  auto _z2 = z2.mdspan();
+  auto _z3 = z3.mdspan();
+  Impl::axpy(_x0, _y0, _z0, beta, alpha);
+  Impl::axpy(_x1, _y1, _z1, beta, alpha);
+  Impl::axpy(_x2, _y2, _z2, beta, alpha);
+  Impl::axpy(_x3, scalar, _z3, beta, alpha);
 
-  Impl::axpy(x0, y0, beta, alpha);
-  Impl::axpy(x1, y1, beta, alpha);
-  Impl::axpy(x2, y2, beta, alpha);
-  Impl::axpy(x3, scalar, beta, alpha);
+  Impl::axpy(_x0, _y0, beta, alpha);
+  Impl::axpy(_x1, _y1, beta, alpha);
+  Impl::axpy(_x2, _y2, beta, alpha);
+  Impl::axpy(_x3, scalar, beta, alpha);
+
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  x3.updateSelf();
+  z0.updateSelf();
+  z1.updateSelf();
+  z2.updateSelf();
+  z3.updateSelf();
+
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<n; ix++) {
-      ASSERT_DOUBLE_EQ( x0(ix, iy), ref0(ix, iy) );
-      ASSERT_DOUBLE_EQ( x1(ix, iy), ref1(ix, iy) );
-      ASSERT_DOUBLE_EQ( x2(ix, iy), ref2(ix, iy) );
-      ASSERT_DOUBLE_EQ( x3(ix, iy), ref3(ix, iy) );
+      EXPECT_NEAR( x0(ix, iy), ref0(ix, iy), eps );
+      EXPECT_NEAR( x1(ix, iy), ref1(ix, iy), eps );
+      EXPECT_NEAR( x2(ix, iy), ref2(ix, iy), eps );
+      EXPECT_NEAR( x3(ix, iy), ref3(ix, iy), eps );
 
-      ASSERT_DOUBLE_EQ( z0(ix, iy), ref0(ix, iy) );
-      ASSERT_DOUBLE_EQ( z1(ix, iy), ref1(ix, iy) );
-      ASSERT_DOUBLE_EQ( z2(ix, iy), ref2(ix, iy) );
-      ASSERT_DOUBLE_EQ( z3(ix, iy), ref3(ix, iy) );
+      EXPECT_NEAR( z0(ix, iy), ref0(ix, iy), eps );
+      EXPECT_NEAR( z1(ix, iy), ref1(ix, iy), eps );
+      EXPECT_NEAR( z2(ix, iy), ref2(ix, iy), eps );
+      EXPECT_NEAR( z3(ix, iy), ref3(ix, iy), eps );
     }
   }
 }
@@ -407,15 +376,13 @@ TEST( AXPY, 2D_plus_1D ) {
 TEST( AXPY, 2D_plus_2D ) {
   const std::size_t n = 3, m = 2;
   const double alpha = 1.5, beta = 1.71;
-  std::vector<double> _x(n*m);
-  std::vector<double> _y(n*m);
-  std::vector<double> _z(n*m);
-  std::vector<double> _ref(n*m);
 
-  Mdspan2D<double> x(_x.data(), n, m);
-  Mdspan2D<double> y(_y.data(), n, m);
-  Mdspan2D<double> z(_z.data(), n, m);
-  Mdspan2D<double> ref(_ref.data(), n, m);
+  View2D<double> x("x", n, m);
+  View2D<double> y("y", n, m);
+  View2D<double> z("z", n, m);
+  View2D<double> ref("ref", n, m);
+
+  constexpr double eps = 1.e-13;
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -428,6 +395,8 @@ TEST( AXPY, 2D_plus_2D ) {
       y(ix, iy) = rand_gen();
     }
   }
+  x.updateDevice();
+  y.updateDevice();
 
   // ref = alpha * x + beta * y;
   for(int iy=0; iy<m; iy++) {
@@ -437,10 +406,14 @@ TEST( AXPY, 2D_plus_2D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x, y, z, beta, alpha);
-  Impl::axpy(x, y, beta, alpha);
+  auto _x = x.mdspan();
+  auto _y = y.mdspan();
+  auto _z = z.mdspan();
+  Impl::axpy(_x, _y, _z, beta, alpha);
+  Impl::axpy(_x, _y, beta, alpha);
 
-  constexpr double eps = 1.e-13;
+  x.updateSelf();
+  z.updateSelf();
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<n; ix++) {
       EXPECT_NEAR( x(ix, iy), ref(ix, iy), eps );
@@ -453,46 +426,27 @@ TEST( AXPY, 3D_plus_1D ) {
   const std::size_t n = 3, m = 2, l = 5;
   const double alpha = 1.5, beta = 1.71;
   const double scalar = 2.31;
-  std::vector<double> _x0(n*m*l);
-  std::vector<double> _x1(n*m*l);
-  std::vector<double> _x2(n*m*l);
-  std::vector<double> _x3(n*m*l);
-  std::vector<double> _x4(n*m*l);
-  std::vector<double> _y0(n);
-  std::vector<double> _y1(m);
-  std::vector<double> _y2(l);
-  std::vector<double> _y3(1);
-  std::vector<double> _z0(n*m*l);
-  std::vector<double> _z1(n*m*l);
-  std::vector<double> _z2(n*m*l);
-  std::vector<double> _z3(n*m*l);
-  std::vector<double> _z4(n*m*l);
-  std::vector<double> _ref0(n*m*l);
-  std::vector<double> _ref1(n*m*l);
-  std::vector<double> _ref2(n*m*l);
-  std::vector<double> _ref3(n*m*l);
-  std::vector<double> _ref4(n*m*l);
 
-  Mdspan3D<double> x0(_x0.data(), n, m, l);
-  Mdspan3D<double> x1(_x1.data(), n, m, l);
-  Mdspan3D<double> x2(_x2.data(), n, m, l);
-  Mdspan3D<double> x3(_x3.data(), n, m, l);
-  Mdspan3D<double> x4(_x4.data(), n, m, l);
-  Mdspan3D<double> y0(_y0.data(), n, 1, 1);
-  Mdspan3D<double> y1(_y1.data(), 1, m, 1);
-  Mdspan3D<double> y2(_y2.data(), 1, 1, l);
-  Mdspan3D<double> y3(_y3.data(), 1, 1, 1);
-  Mdspan3D<double> z0(_z0.data(), n, m, l);
-  Mdspan3D<double> z1(_z1.data(), n, m, l);
-  Mdspan3D<double> z2(_z2.data(), n, m, l);
-  Mdspan3D<double> z3(_z3.data(), n, m, l);
-  Mdspan3D<double> z4(_z4.data(), n, m, l);
+  View3D<double> x0("x0", n, m, l);
+  View3D<double> x1("x1", n, m, l);
+  View3D<double> x2("x2", n, m, l);
+  View3D<double> x3("x3", n, m, l);
+  View3D<double> x4("x4", n, m, l);
+  View3D<double> y0("y0", n, 1, 1);
+  View3D<double> y1("y1", 1, m, 1);
+  View3D<double> y2("y2", 1, 1, l);
+  View3D<double> y3("y3", 1, 1, 1);
+  View3D<double> z0("z0", n, m, l);
+  View3D<double> z1("z1", n, m, l);
+  View3D<double> z2("z2", n, m, l);
+  View3D<double> z3("z3", n, m, l);
+  View3D<double> z4("z4", n, m, l);
 
-  Mdspan3D<double> ref0(_ref0.data(), n, m, l);
-  Mdspan3D<double> ref1(_ref1.data(), n, m, l);
-  Mdspan3D<double> ref2(_ref2.data(), n, m, l);
-  Mdspan3D<double> ref3(_ref3.data(), n, m, l);
-  Mdspan3D<double> ref4(_ref4.data(), n, m, l);
+  View3D<double> ref0("ref0", n, m, l);
+  View3D<double> ref1("ref1", n, m, l);
+  View3D<double> ref2("ref2", n, m, l);
+  View3D<double> ref3("ref3", n, m, l);
+  View3D<double> ref4("ref4", n, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -525,6 +479,16 @@ TEST( AXPY, 3D_plus_1D ) {
   }
   y3(0, 0, 0) = rand_gen();
 
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  x3.updateDevice();
+  x4.updateDevice();
+  y0.updateDevice();
+  y1.updateDevice();
+  y2.updateDevice();
+  y3.updateDevice();
+
   // ref = alpha * x + beta * y;
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
@@ -539,33 +503,58 @@ TEST( AXPY, 3D_plus_1D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x0, y0, z0, beta, alpha);
-  Impl::axpy(x1, y1, z1, beta, alpha);
-  Impl::axpy(x2, y2, z2, beta, alpha);
-  Impl::axpy(x3, y3, z3, beta, alpha);
-  Impl::axpy(x4, scalar, z4, beta, alpha);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _x3 = x3.mdspan();
+  auto _x4 = x4.mdspan();
+  auto _y0 = y0.mdspan();
+  auto _y1 = y1.mdspan();
+  auto _y2 = y2.mdspan();
+  auto _y3 = y3.mdspan();
+  auto _z0 = z0.mdspan();
+  auto _z1 = z1.mdspan();
+  auto _z2 = z2.mdspan();
+  auto _z3 = z3.mdspan();
+  auto _z4 = z4.mdspan();
+  Impl::axpy(_x0, _y0, _z0, beta, alpha);
+  Impl::axpy(_x1, _y1, _z1, beta, alpha);
+  Impl::axpy(_x2, _y2, _z2, beta, alpha);
+  Impl::axpy(_x3, _y3, _z3, beta, alpha);
+  Impl::axpy(_x4, scalar, _z4, beta, alpha);
 
-  Impl::axpy(x0, y0, beta, alpha);
-  Impl::axpy(x1, y1, beta, alpha);
-  Impl::axpy(x2, y2, beta, alpha);
-  Impl::axpy(x3, y3, beta, alpha);
-  Impl::axpy(x4, scalar, beta, alpha);
+  Impl::axpy(_x0, _y0, beta, alpha);
+  Impl::axpy(_x1, _y1, beta, alpha);
+  Impl::axpy(_x2, _y2, beta, alpha);
+  Impl::axpy(_x3, _y3, beta, alpha);
+  Impl::axpy(_x4, scalar, beta, alpha);
+
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  x3.updateSelf();
+  x4.updateSelf();
+  z0.updateSelf();
+  z1.updateSelf();
+  z2.updateSelf();
+  z3.updateSelf();
+  z4.updateSelf();
 
   constexpr double eps = 1.e-13;
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
       for(int ix=0; ix<n; ix++) {
-        ASSERT_NEAR( x0(ix, iy, iz), ref0(ix, iy, iz), eps );
-        ASSERT_NEAR( x1(ix, iy, iz), ref1(ix, iy, iz), eps );
-        ASSERT_NEAR( x2(ix, iy, iz), ref2(ix, iy, iz), eps );
-        ASSERT_NEAR( x3(ix, iy, iz), ref3(ix, iy, iz), eps );
-        ASSERT_NEAR( x4(ix, iy, iz), ref4(ix, iy, iz), eps );
+        EXPECT_NEAR( x0(ix, iy, iz), ref0(ix, iy, iz), eps );
+        EXPECT_NEAR( x1(ix, iy, iz), ref1(ix, iy, iz), eps );
+        EXPECT_NEAR( x2(ix, iy, iz), ref2(ix, iy, iz), eps );
+        EXPECT_NEAR( x3(ix, iy, iz), ref3(ix, iy, iz), eps );
+        EXPECT_NEAR( x4(ix, iy, iz), ref4(ix, iy, iz), eps );
 
-        ASSERT_NEAR( z0(ix, iy, iz), ref0(ix, iy, iz), eps );
-        ASSERT_NEAR( z1(ix, iy, iz), ref1(ix, iy, iz), eps );
-        ASSERT_NEAR( z2(ix, iy, iz), ref2(ix, iy, iz), eps );
-        ASSERT_NEAR( z3(ix, iy, iz), ref3(ix, iy, iz), eps );
-        ASSERT_NEAR( z4(ix, iy, iz), ref4(ix, iy, iz), eps );
+        EXPECT_NEAR( z0(ix, iy, iz), ref0(ix, iy, iz), eps );
+        EXPECT_NEAR( z1(ix, iy, iz), ref1(ix, iy, iz), eps );
+        EXPECT_NEAR( z2(ix, iy, iz), ref2(ix, iy, iz), eps );
+        EXPECT_NEAR( z3(ix, iy, iz), ref3(ix, iy, iz), eps );
+        EXPECT_NEAR( z4(ix, iy, iz), ref4(ix, iy, iz), eps );
       }
     }
   }
@@ -574,33 +563,20 @@ TEST( AXPY, 3D_plus_1D ) {
 TEST( AXPY, 3D_plus_2D ) {
   const std::size_t n = 3, m = 2, l = 5;
   const double alpha = 1.5, beta = 1.71;
-  std::vector<double> _x0(n*m*l);
-  std::vector<double> _x1(n*m*l);
-  std::vector<double> _x2(n*m*l);
-  std::vector<double> _y0(m*l);
-  std::vector<double> _y1(n*l);
-  std::vector<double> _y2(n*m);
-  std::vector<double> _z0(n*m*l);
-  std::vector<double> _z1(n*m*l);
-  std::vector<double> _z2(n*m*l);
 
-  std::vector<double> _ref0(n*m*l);
-  std::vector<double> _ref1(n*m*l);
-  std::vector<double> _ref2(n*m*l);
+  View3D<double> x0("x0", n, m, l);
+  View3D<double> x1("x1", n, m, l);
+  View3D<double> x2("x2", n, m, l);
+  View3D<double> y0("y0", 1, m, l);
+  View3D<double> y1("y1", n, 1, l);
+  View3D<double> y2("y2", n, m, 1);
+  View3D<double> z0("z0", n, m, l);
+  View3D<double> z1("z1", n, m, l);
+  View3D<double> z2("z2", n, m, l);
 
-  Mdspan3D<double> x0(_x0.data(), n, m, l);
-  Mdspan3D<double> x1(_x1.data(), n, m, l);
-  Mdspan3D<double> x2(_x2.data(), n, m, l);
-  Mdspan3D<double> y0(_y0.data(), 1, m, l);
-  Mdspan3D<double> y1(_y1.data(), n, 1, l);
-  Mdspan3D<double> y2(_y2.data(), n, m, 1);
-  Mdspan3D<double> z0(_z0.data(), n, m, l);
-  Mdspan3D<double> z1(_z1.data(), n, m, l);
-  Mdspan3D<double> z2(_z2.data(), n, m, l);
-
-  Mdspan3D<double> ref0(_ref0.data(), n, m, l);
-  Mdspan3D<double> ref1(_ref1.data(), n, m, l);
-  Mdspan3D<double> ref2(_ref2.data(), n, m, l);
+  View3D<double> ref0("ref0", n, m, l);
+  View3D<double> ref1("ref1", n, m, l);
+  View3D<double> ref2("ref2", n, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -628,6 +604,12 @@ TEST( AXPY, 3D_plus_2D ) {
       y2(ix, iy, 0) = rand_gen();
     }
   }
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  y0.updateDevice();
+  y1.updateDevice();
+  y2.updateDevice();
 
   // ref = alpha * x + beta * y;
   for(int iz=0; iz<l; iz++) {
@@ -641,24 +623,42 @@ TEST( AXPY, 3D_plus_2D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x0, y0, z0, beta, alpha);
-  Impl::axpy(x1, y1, z1, beta, alpha);
-  Impl::axpy(x2, y2, z2, beta, alpha);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _y0 = y0.mdspan();
+  auto _y1 = y1.mdspan();
+  auto _y2 = y2.mdspan();
+  auto _z0 = z0.mdspan();
+  auto _z1 = z1.mdspan();
+  auto _z2 = z2.mdspan();
 
-  Impl::axpy(x0, y0, beta, alpha);
-  Impl::axpy(x1, y1, beta, alpha);
-  Impl::axpy(x2, y2, beta, alpha);
+  Impl::axpy(_x0, _y0, _z0, beta, alpha);
+  Impl::axpy(_x1, _y1, _z1, beta, alpha);
+  Impl::axpy(_x2, _y2, _z2, beta, alpha);
+
+  Impl::axpy(_x0, _y0, beta, alpha);
+  Impl::axpy(_x1, _y1, beta, alpha);
+  Impl::axpy(_x2, _y2, beta, alpha);
+
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  z0.updateSelf();
+  z1.updateSelf();
+  z2.updateSelf();
+
   constexpr double eps = 1.e-13;
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
       for(int ix=0; ix<n; ix++) {
-        ASSERT_NEAR( x0(ix, iy, iz), ref0(ix, iy, iz), eps );
-        ASSERT_NEAR( x1(ix, iy, iz), ref1(ix, iy, iz), eps );
-        ASSERT_NEAR( x2(ix, iy, iz), ref2(ix, iy, iz), eps );
+        EXPECT_NEAR( x0(ix, iy, iz), ref0(ix, iy, iz), eps );
+        EXPECT_NEAR( x1(ix, iy, iz), ref1(ix, iy, iz), eps );
+        EXPECT_NEAR( x2(ix, iy, iz), ref2(ix, iy, iz), eps );
 
-        ASSERT_NEAR( z0(ix, iy, iz), ref0(ix, iy, iz), eps );
-        ASSERT_NEAR( z1(ix, iy, iz), ref1(ix, iy, iz), eps );
-        ASSERT_NEAR( z2(ix, iy, iz), ref2(ix, iy, iz), eps );
+        EXPECT_NEAR( z0(ix, iy, iz), ref0(ix, iy, iz), eps );
+        EXPECT_NEAR( z1(ix, iy, iz), ref1(ix, iy, iz), eps );
+        EXPECT_NEAR( z2(ix, iy, iz), ref2(ix, iy, iz), eps );
       }
     }
   }
@@ -667,15 +667,10 @@ TEST( AXPY, 3D_plus_2D ) {
 TEST( AXPY, 3D_plus_3D ) {
   const std::size_t n = 3, m = 2, l = 5;
   const double alpha = 1.5, beta = 1.71;
-  std::vector<double> _x(n*m*l);
-  std::vector<double> _y(n*m*l);
-  std::vector<double> _z(n*m*l);
-  std::vector<double> _ref(n*m*l);
-
-  Mdspan3D<double> x(_x.data(), n, m, l);
-  Mdspan3D<double> y(_y.data(), n, m, l);
-  Mdspan3D<double> z(_z.data(), n, m, l);
-  Mdspan3D<double> ref(_ref.data(), n, m, l);
+  View3D<double> x("x", n, m, l);
+  View3D<double> y("y", n, m, l);
+  View3D<double> z("z", n, m, l);
+  View3D<double> ref("ref", n, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -690,6 +685,8 @@ TEST( AXPY, 3D_plus_3D ) {
       }
     }
   }
+  x.updateDevice();
+  y.updateDevice();
 
   // ref = alpha * x + beta * y;
   for(int iz=0; iz<l; iz++) {
@@ -701,8 +698,14 @@ TEST( AXPY, 3D_plus_3D ) {
   }
 
   // Axpy (Outplace first then inplace)
-  Impl::axpy(x, y, z, beta, alpha);
-  Impl::axpy(x, y, beta, alpha);
+  auto _x = x.mdspan();
+  auto _y = y.mdspan();
+  auto _z = z.mdspan();
+  Impl::axpy(_x, _y, _z, beta, alpha);
+  Impl::axpy(_x, _y, beta, alpha);
+
+  x.updateSelf();
+  z.updateSelf();
 
   constexpr double eps = 1.e-13;
   for(int iz=0; iz<l; iz++) {
@@ -717,27 +720,17 @@ TEST( AXPY, 3D_plus_3D ) {
 
 TEST( ZEROS_LIKE, 1D_to_3D ) {
   const std::size_t n = 3, m = 2, l = 5;
-  std::vector<double> _x0(n);
-  std::vector<double> _x1(n*m);
-  std::vector<double> _x2(n*m*l);
-  std::vector<double> _zeros0(n);
-  std::vector<double> _zeros1(n*m);
-  std::vector<double> _zeros2(n*m*l);
 
-  std::vector<double> _ref0(n, 0.0);
-  std::vector<double> _ref1(n*m, 0.0);
-  std::vector<double> _ref2(n*m*l, 0.0);
+  View1D<double> x0("x0", n);
+  View2D<double> x1("x1", n, m);
+  View3D<double> x2("x2", n, m, l);
+  View1D<double> zeros0("zeros0", n);
+  View2D<double> zeros1("zeros1", n, m);
+  View3D<double> zeros2("zeros2", n, m, l);
 
-  Mdspan1D<double> x0(_x0.data(), n);
-  Mdspan2D<double> x1(_x1.data(), n, m);
-  Mdspan3D<double> x2(_x2.data(), n, m, l);
-  Mdspan1D<double> zeros0(_zeros0.data(), n);
-  Mdspan2D<double> zeros1(_zeros1.data(), n, m);
-  Mdspan3D<double> zeros2(_zeros2.data(), n, m, l);
-
-  Mdspan1D<double> ref0(_ref0.data(), n);
-  Mdspan2D<double> ref1(_ref1.data(), n, m);
-  Mdspan3D<double> ref2(_ref2.data(), n, m, l);
+  View1D<double> ref0("ref0", n);
+  View2D<double> ref1("ref1", n, m);
+  View3D<double> ref2("ref2", n, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -758,15 +751,34 @@ TEST( ZEROS_LIKE, 1D_to_3D ) {
       }
     }
   }
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  zeros0.updateDevice();
+  zeros1.updateDevice();
+  zeros2.updateDevice();
 
   //  (Outplace first then inplace)
-  Impl::zeros_like(x0, zeros0);
-  Impl::zeros_like(x1, zeros1);
-  Impl::zeros_like(x2, zeros2);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _zeros0 = zeros0.mdspan();
+  auto _zeros1 = zeros1.mdspan();
+  auto _zeros2 = zeros2.mdspan();
+  Impl::zeros_like(_x0, _zeros0);
+  Impl::zeros_like(_x1, _zeros1);
+  Impl::zeros_like(_x2, _zeros2);
 
-  Impl::zeros_like(x0);
-  Impl::zeros_like(x1);
-  Impl::zeros_like(x2);
+  Impl::zeros_like(_x0);
+  Impl::zeros_like(_x1);
+  Impl::zeros_like(_x2);
+
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  zeros0.updateSelf();
+  zeros1.updateSelf();
+  zeros2.updateSelf();
 
   for(int ix=0; ix<n; ix++) {
     ASSERT_EQ( zeros0(ix), ref0(ix) );
@@ -792,27 +804,16 @@ TEST( ZEROS_LIKE, 1D_to_3D ) {
 
 TEST( ONES_LIKE, 1D_to_3D ) {
   const std::size_t n = 3, m = 2, l = 5;
-  std::vector<double> _x0(n);
-  std::vector<double> _x1(n*m);
-  std::vector<double> _x2(n*m*l);
-  std::vector<double> _ones0(n);
-  std::vector<double> _ones1(n*m);
-  std::vector<double> _ones2(n*m*l);
+  View1D<double> x0("x0", n);
+  View2D<double> x1("x1", n, m);
+  View3D<double> x2("x2", n, m, l);
+  View1D<double> ones0("ones0", n);
+  View2D<double> ones1("ones1", n, m);
+  View3D<double> ones2("ones2", n, m, l);
 
-  std::vector<double> _ref0(n, 1.0);
-  std::vector<double> _ref1(n*m, 1.0);
-  std::vector<double> _ref2(n*m*l, 1.0);
-
-  Mdspan1D<double> x0(_x0.data(), n);
-  Mdspan2D<double> x1(_x1.data(), n, m);
-  Mdspan3D<double> x2(_x2.data(), n, m, l);
-  Mdspan1D<double> ones0(_ones0.data(), n);
-  Mdspan2D<double> ones1(_ones1.data(), n, m);
-  Mdspan3D<double> ones2(_ones2.data(), n, m, l);
-
-  Mdspan1D<double> ref0(_ref0.data(), n);
-  Mdspan2D<double> ref1(_ref1.data(), n, m);
-  Mdspan3D<double> ref2(_ref2.data(), n, m, l);
+  View1D<double> ref0("ref0", n);
+  View2D<double> ref1("ref1", n, m);
+  View3D<double> ref2("ref2", n, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -829,18 +830,41 @@ TEST( ONES_LIKE, 1D_to_3D ) {
         ones0(ix) = rand_gen();
         ones1(ix, iy) = rand_gen();
         ones2(ix, iy, iz) = rand_gen();
+
+        ref0(ix) = 1.0;
+        ref1(ix, iy) = 1.0;
+        ref2(ix, iy, iz) = 1.0;
       }
     }
   }
+  x0.updateDevice();
+  x1.updateDevice();
+  x2.updateDevice();
+  ones0.updateDevice();
+  ones1.updateDevice();
+  ones2.updateDevice();
 
   //  (Outplace first then inplace)
-  Impl::ones_like(x0, ones0);
-  Impl::ones_like(x1, ones1);
-  Impl::ones_like(x2, ones2);
+  auto _x0 = x0.mdspan();
+  auto _x1 = x1.mdspan();
+  auto _x2 = x2.mdspan();
+  auto _ones0 = ones0.mdspan();
+  auto _ones1 = ones1.mdspan();
+  auto _ones2 = ones2.mdspan();
+  Impl::ones_like(_x0, _ones0);
+  Impl::ones_like(_x1, _ones1);
+  Impl::ones_like(_x2, _ones2);
 
-  Impl::ones_like(x0);
-  Impl::ones_like(x1);
-  Impl::ones_like(x2);
+  Impl::ones_like(_x0);
+  Impl::ones_like(_x1);
+  Impl::ones_like(_x2);
+
+  x0.updateSelf();
+  x1.updateSelf();
+  x2.updateSelf();
+  ones0.updateSelf();
+  ones1.updateSelf();
+  ones2.updateSelf();
 
   for(int ix=0; ix<n; ix++) {
     ASSERT_EQ( ones0(ix), ref0(ix) );
@@ -866,16 +890,10 @@ TEST( ONES_LIKE, 1D_to_3D ) {
 
 TEST( IDENTITY, 2D_and_3D ) {
   const std::size_t m = 3, l = 5;
-  std::vector<double> _a(m*m);
-  std::vector<double> _a_batch(m*m*l);
-
-  std::vector<double> _ref(m*m);
-  std::vector<double> _ref_batch(m*m*l);
-
-  Mdspan2D<double> a(_a.data(), m, m);
-  Mdspan3D<double> a_batch(_a_batch.data(), m, m, l);
-  Mdspan2D<double> ref(_ref.data(), m, m);
-  Mdspan3D<double> ref_batch(_ref_batch.data(), m, m, l);
+  View2D<double> a("a", m, m);
+  View3D<double> a_batch("a_batch", m, m, l);
+  View2D<double> ref("ref", m, m);
+  View3D<double> ref_batch("ref_batch", m, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
@@ -890,6 +908,8 @@ TEST( IDENTITY, 2D_and_3D ) {
       }
     }
   }
+  a.updateDevice();
+  a_batch.updateDevice();
 
   // Set identity matrix
   for(int iz=0; iz<l; iz++) {
@@ -899,9 +919,13 @@ TEST( IDENTITY, 2D_and_3D ) {
     }
   }
 
-  Impl::identity(a);
-  Impl::identity(a_batch);
+  auto _a = a.mdspan();
+  auto _a_batch = a_batch.mdspan();
+  Impl::identity(_a);
+  Impl::identity(_a_batch);
 
+  a.updateSelf();
+  a_batch.updateSelf();
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<m; ix++) {
       ASSERT_EQ( a(ix, iy), ref(ix, iy) );
@@ -920,21 +944,14 @@ TEST( IDENTITY, 2D_and_3D ) {
 TEST( DIAG, 2D_and_3D ) {
   const std::size_t m = 3, l = 5;
   double exponent = -0.5;
-  std::vector<double> _a(m*m);
-  std::vector<double> _a_batch(m*m*l);
-  std::vector<double> _v(m);
-  std::vector<double> _v_batch(m*l);
 
-  std::vector<double> _ref(m*m);
-  std::vector<double> _ref_batch(m*m*l);
+  View2D<double> a("a", m, m);
+  View3D<double> a_batch("a_batch", m, m, l);
+  View1D<double> v("v", m);
+  View2D<double> v_batch("v_batch", m, l);
 
-  Mdspan2D<double> a(_a.data(), m, m);
-  Mdspan3D<double> a_batch(_a_batch.data(), m, m, l);
-  Mdspan1D<double> v(_v.data(), m);
-  Mdspan2D<double> v_batch(_v_batch.data(), m, l);
-
-  Mdspan2D<double> ref(_ref.data(), m, m);
-  Mdspan3D<double> ref_batch(_ref_batch.data(), m, m, l);
+  View2D<double> ref("ref", m, m);
+  View3D<double> ref_batch("ref_batch", m, m, l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(0, 1);
@@ -966,6 +983,10 @@ TEST( DIAG, 2D_and_3D ) {
       v_batch(ix, iz) = nonzero_gen();
     }
   }
+  a.updateDevice();
+  a_batch.updateDevice();
+  v.updateDevice();
+  v_batch.updateDevice();
 
   // Set diagonal matrix
   for(int iz=0; iz<l; iz++) {
@@ -975,20 +996,28 @@ TEST( DIAG, 2D_and_3D ) {
     }
   }
 
-  Impl::diag(v, a, exponent);
-  Impl::diag(v_batch, a_batch, exponent);
+  auto _a = a.mdspan();
+  auto _a_batch = a_batch.mdspan();
+  auto _v = v.mdspan();
+  auto _v_batch = v_batch.mdspan();
+
+  Impl::diag(_v, _a, exponent);
+  Impl::diag(_v_batch, _a_batch, exponent);
+
+  a.updateSelf();
+  a_batch.updateSelf();
 
   constexpr double eps = 1.e-13;
   for(int iy=0; iy<m; iy++) {
     for(int ix=0; ix<m; ix++) {
-      ASSERT_NEAR( a(ix, iy), ref(ix, iy), eps );
+      EXPECT_NEAR( a(ix, iy), ref(ix, iy), eps );
     }
   }
 
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
       for(int ix=0; ix<m; ix++) {
-        ASSERT_NEAR( a_batch(ix, iy, iz), ref_batch(ix, iy, iz), eps );
+        EXPECT_NEAR( a_batch(ix, iy, iz), ref_batch(ix, iy, iz), eps );
       }
     }
   }
@@ -997,17 +1026,12 @@ TEST( DIAG, 2D_and_3D ) {
 TEST( SQUEEZE, 2D ) {
   const std::size_t m = 3, n = 4;
   using RealType = double;
-  std::vector<RealType> _a0(n);
-  std::vector<RealType> _a1(m);
+  View2D<double> a0("a0", 1, n);
+  View2D<double> a1("a1", m, 1);
 
-  std::vector<RealType> _ref0(n);
-  std::vector<RealType> _ref1(m);
-
-  Mdspan2D<double> a0(_a0.data(), 1, n);
-  Mdspan2D<double> a1(_a1.data(), m, 1);
-
-  Mdspan1D<double> ref0(_ref0.data(), n);
-  Mdspan1D<double> ref1(_ref1.data(), m);
+  View1D<double> ref0("ref0", n);
+  View1D<double> ref1("ref1", m);
+  View1D<double> ref2("ref2", m);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(0, 1);
@@ -1022,41 +1046,54 @@ TEST( SQUEEZE, 2D ) {
   for(int ix=0; ix<m; ix++) {
     a1(ix, 0) = rand_gen();
     ref1(ix) = a1(ix, 0);
+    ref2(ix) = a1(ix, 0);
   }
+  a0.updateDevice();
+  a1.updateDevice();
+  ref0.updateDevice();
+  ref1.updateDevice();
+  ref2.updateDevice();
 
   // auto out = Impl::squeeze(View2D in, int axis=-1);
-  auto b0 = Impl::squeeze(a0, 0);
-  auto b1 = Impl::squeeze(a1, 1);
-  auto c1 = Impl::squeeze(a1, -1);
+  auto _a0 = a0.mdspan();
+  auto _a1 = a1.mdspan();
+  auto _ref0 = ref0.mdspan();
+  auto _ref1 = ref1.mdspan();
+  auto _ref2 = ref2.mdspan();
+  auto b0 = Impl::squeeze(_a0, 0);
+  auto b1 = Impl::squeeze(_a1, 1);
+  auto c1 = Impl::squeeze(_a1, -1);
 
+  Impl::axpy(_ref0, b0, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref1, b1, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref2, c1, -1); // Need to compute difference on GPUs
+  ref0.updateSelf();
+  ref1.updateSelf();
+  ref2.updateSelf();
+
+  constexpr double eps = 1.e-13;
   for(int iy=0; iy<n; iy++) {
-    ASSERT_EQ( b0(iy), ref0(iy) );
+    EXPECT_LE( abs( ref0(iy) ), eps );
   }
 
   for(int ix=0; ix<m; ix++) {
-    ASSERT_EQ( b1(ix), ref1(ix) );
-    ASSERT_EQ( c1(ix), ref1(ix) );
+    EXPECT_LE( abs( ref1(ix) ), eps );
+    EXPECT_LE( abs( ref2(ix) ), eps );
   }
 }
 
 TEST( SQUEEZE, 3D ) {
   const std::size_t m = 3, n = 4, l = 5;
   using RealType = double;
-  std::vector<RealType> _a0(n*l);
-  std::vector<RealType> _a1(m*l);
-  std::vector<RealType> _a2(m*n);
 
-  std::vector<RealType> _ref0(n*l);
-  std::vector<RealType> _ref1(m*l);
-  std::vector<RealType> _ref2(m*n);
+  View3D<double> a0("a0", 1, n, l);
+  View3D<double> a1("a1", m, 1, l);
+  View3D<double> a2("a2", m, n, 1);
 
-  Mdspan3D<double> a0(_a0.data(), 1, n, l);
-  Mdspan3D<double> a1(_a1.data(), m, 1, l);
-  Mdspan3D<double> a2(_a2.data(), m, n, 1);
-
-  Mdspan2D<double> ref0(_ref0.data(), n, l);
-  Mdspan2D<double> ref1(_ref1.data(), m, l);
-  Mdspan2D<double> ref2(_ref2.data(), m, n);
+  View2D<double> ref0("ref0", n, l);
+  View2D<double> ref1("ref1", m, l);
+  View2D<double> ref2("ref2", m, n);
+  View2D<double> ref3("ref3", m, n);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(0, 1);
@@ -1081,31 +1118,59 @@ TEST( SQUEEZE, 3D ) {
     for(int ix=0; ix<m; ix++) {
       a2(ix, iy, 0) = rand_gen();
       ref2(ix, iy) = a2(ix, iy, 0);
+      ref3(ix, iy) = a2(ix, iy, 0);
     }
   }
 
+  a0.updateDevice();
+  a1.updateDevice();
+  a2.updateDevice();
+  ref0.updateDevice();
+  ref1.updateDevice();
+  ref2.updateDevice();
+  ref3.updateDevice();
+
   // auto out = Impl::squeeze(View3D in, int axis=-1);
-  auto b0 = Impl::squeeze(a0, 0);
-  auto b1 = Impl::squeeze(a1, 1);
-  auto b2 = Impl::squeeze(a2, 2);
-  auto c2 = Impl::squeeze(a2, -1);
+  auto _a0 = a0.mdspan();
+  auto _a1 = a1.mdspan();
+  auto _a2 = a2.mdspan();
+  auto _ref0 = ref0.mdspan();
+  auto _ref1 = ref1.mdspan();
+  auto _ref2 = ref2.mdspan();
+  auto _ref3 = ref3.mdspan();
+
+  auto b0 = Impl::squeeze(_a0, 0);
+  auto b1 = Impl::squeeze(_a1, 1);
+  auto b2 = Impl::squeeze(_a2, 2);
+  auto c2 = Impl::squeeze(_a2, -1);
+
+  Impl::axpy(_ref0, b0, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref1, b1, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref2, b2, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref3, c2, -1); // Need to compute difference on GPUs
+  ref0.updateSelf();
+  ref1.updateSelf();
+  ref2.updateSelf();
+  ref3.updateSelf();
+
+  constexpr double eps = 1.e-13;
 
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<n; iy++) {
-      ASSERT_EQ( b0(iy, iz), ref0(iy, iz) );
+      EXPECT_LE( abs( ref0(iy, iz) ), eps );
     }
   }
 
   for(int iz=0; iz<l; iz++) {
     for(int ix=0; ix<m; ix++) {
-      ASSERT_EQ( b1(ix, iz), ref1(ix, iz) );
+      EXPECT_LE( abs( ref1(ix, iz) ), eps );
     }
   }
 
   for(int iy=0; iy<n; iy++) {
     for(int ix=0; ix<m; ix++) {
-      ASSERT_EQ( b2(ix, iy), ref2(ix, iy) );
-      ASSERT_EQ( c2(ix, iy), ref2(ix, iy) );
+      EXPECT_LE( abs( ref2(ix, iy) ), eps );
+      EXPECT_LE( abs( ref2(ix, iy) ), eps );
     }
   }
 }
@@ -1113,15 +1178,10 @@ TEST( SQUEEZE, 3D ) {
 TEST( RESHAPE, 3D ) {
   const std::size_t m = 3, n = 4, l = 5;
   using RealType = double;
-  std::vector<RealType> _a0(m*n*l);
 
-  std::vector<RealType> _ref0(m*n*l);
-  std::vector<RealType> _ref1(m*n*l);
-
-  Mdspan3D<double> a0(_a0.data(), m, n, l);
-
-  Mdspan2D<double> ref0(_ref0.data(), m*n, l);
-  Mdspan1D<double> ref1(_ref1.data(), m*n*l);
+  View3D<double> a0("a0", m, n, l);
+  View2D<double> ref0("ref0", m*n, l);
+  View1D<double> ref1("ref1", m*n*l);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(0, 1);
@@ -1146,18 +1206,32 @@ TEST( RESHAPE, 3D ) {
     }
   }
 
-  auto b0 = Impl::reshape(a0, std::array<std::size_t, 2>({m*n, l}));
-  auto b1 = Impl::reshape(a0, std::array<std::size_t, 1>({m*n*l}));
+  a0.updateDevice();
+  ref0.updateDevice();
+  ref1.updateDevice();
 
+  auto _a0 = a0.mdspan();
+  auto _ref0 = ref0.mdspan();
+  auto _ref1 = ref1.mdspan();
+
+  auto b0 = Impl::reshape(_a0, std::array<std::size_t, 2>({m*n, l}));
+  auto b1 = Impl::reshape(_a0, std::array<std::size_t, 1>({m*n*l}));
+
+  Impl::axpy(_ref0, b0, -1); // Need to compute difference on GPUs
+  Impl::axpy(_ref1, b1, -1); // Need to compute difference on GPUs
+  ref0.updateSelf();
+  ref1.updateSelf();
+
+  constexpr double eps = 1.e-13;
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<n; iy++) {
       for(int ix=0; ix<m; ix++) {
         if(std::is_same_v<layout_type, stdex::layout_left>) {
-          ASSERT_EQ( b0(ix + iy * m, iz), ref0(ix + iy * m, iz) );
-          ASSERT_EQ( b1(ix + iy * m + iz * m * n), ref1(ix + iy * m + iz * m * n) );
+          EXPECT_LE( abs( ref0(ix + iy * m, iz) ), eps );
+          EXPECT_LE( abs( ref1(ix + iy * m + iz * m * n) ), eps );
         } else {
-          ASSERT_EQ( b0(ix * n + iy, iz), ref0(ix * n + iy, iz) );
-          ASSERT_EQ( b1(ix * n * l + iy * l + iz), ref1(ix * n * l + iy * l + iz) );
+          EXPECT_LE( abs( ref0(ix * n + iy, iz) ), eps );
+          EXPECT_LE( abs( ref1(ix * n * l + iy * l + iz) ), eps );
         }
       }
     }
@@ -1167,27 +1241,17 @@ TEST( RESHAPE, 3D ) {
 TEST( DEEP_COPY, 1Dto3D ) {
   const std::size_t m = 3, n = 4, l = 5;
   using RealType = double;
-  std::vector<RealType> _a0(m*n*l);
-  std::vector<RealType> _a1(m*n);
-  std::vector<RealType> _a2(m);
-  std::vector<RealType> _b0(m*n*l);
-  std::vector<RealType> _b1(m*n);
-  std::vector<RealType> _b2(m);
 
-  std::vector<RealType> _ref0(m*n*l);
-  std::vector<RealType> _ref1(m*n);
-  std::vector<RealType> _ref2(m);
+  View3D<double> a0("a0", m, n, l);
+  View2D<double> a1("a1", m, n);
+  View1D<double> a2("a2", m);
+  View3D<double> b0("b0", m, n, l);
+  View2D<double> b1("b1", m, n);
+  View1D<double> b2("b2", m);
 
-  Mdspan3D<double> a0(_a0.data(), m, n, l);
-  Mdspan2D<double> a1(_a1.data(), m, n);
-  Mdspan1D<double> a2(_a2.data(), m);
-  Mdspan3D<double> b0(_b0.data(), m, n, l);
-  Mdspan2D<double> b1(_b1.data(), m, n);
-  Mdspan1D<double> b2(_b2.data(), m);
-
-  Mdspan3D<double> ref0(_ref0.data(), m, n, l);
-  Mdspan2D<double> ref1(_ref1.data(), m, n);
-  Mdspan1D<double> ref2(_ref2.data(), m);
+  View3D<double> ref0("ref0", m, n, l);
+  View2D<double> ref1("ref1", m, n);
+  View1D<double> ref2("ref2", m);
 
   auto rand_engine = std::mt19937(0);
   auto rand_dist = std::uniform_real_distribution<double>(0, 1);
@@ -1206,10 +1270,24 @@ TEST( DEEP_COPY, 1Dto3D ) {
       }
     }
   }
+  a0.updateDevice();
+  a1.updateDevice();
+  a2.updateDevice();
 
-  Impl::deep_copy(a0, b0);
-  Impl::deep_copy(a1, b1);
-  Impl::deep_copy(a2, b2);
+  auto _a0 = a0.mdspan();
+  auto _a1 = a1.mdspan();
+  auto _a2 = a2.mdspan();
+  auto _b0 = b0.mdspan();
+  auto _b1 = b1.mdspan();
+  auto _b2 = b2.mdspan();
+
+  Impl::deep_copy(_a0, _b0);
+  Impl::deep_copy(_a1, _b1);
+  Impl::deep_copy(_a2, _b2);
+
+  b0.updateSelf();
+  b1.updateSelf();
+  b2.updateSelf();
 
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<n; iy++) {
