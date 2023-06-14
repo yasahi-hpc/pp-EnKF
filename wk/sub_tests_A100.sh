@@ -26,7 +26,7 @@ then
     cd ../
     rm -rf build
     mkdir build && cd build
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DBUILD_TESTING=ON ..
     cmake --build . -j 8
     cd ../wk/
 fi
