@@ -2,6 +2,7 @@ add_executable(google-tests-stdpar
     test_view.cpp
     test_fft.cpp
     test_transpose.cpp
+    test_numpy_like.cpp
 )
 target_compile_features(google-tests-stdpar PUBLIC cxx_std_20)
 

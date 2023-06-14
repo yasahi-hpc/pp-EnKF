@@ -27,8 +27,6 @@ namespace stdex = std::experimental;
   using default_iterate_layout = stdex::layout_left;
 #endif
 
-#define LONG_BUFFER_WIDTH 256
-
 using int8  = int8_t;
 using int16 = int16_t;
 using int32 = int32_t;
@@ -45,10 +43,19 @@ using complex64 = std::complex<float32>;
 using complex128 = std::complex<float64>;
 
 using Real = float64;
-using size_type = uint32;
+using size_type = std::size_t;
 
 template <size_type N>
 using shape_type = std::array<size_type, N>;
+
+template <typename ElementType>
+using Mdspan1D = stdex::mdspan<ElementType, stdex::dextents<size_type, 1>, default_layout>;
+template <typename ElementType>
+using Mdspan2D = stdex::mdspan<ElementType, stdex::dextents<size_type, 2>, default_layout>;
+template <typename ElementType>
+using Mdspan3D = stdex::mdspan<ElementType, stdex::dextents<size_type, 3>, default_layout>;
+template <typename ElementType>
+using Mdspan4D = stdex::mdspan<ElementType, stdex::dextents<size_type, 4>, default_layout>;
 
 template < typename ElementType > 
 using View1D = View<ElementType, stdex::dextents< size_type, 1 >, default_layout >;
