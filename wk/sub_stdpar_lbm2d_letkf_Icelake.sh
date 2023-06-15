@@ -1,10 +1,11 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=10:00"
+#PJM -L "elapse=60:00"
 #PJM -s
 #PJM -g jh220031a
 #PJM --mpi proc=4
+#PJM --omp thread=18
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -26,14 +27,16 @@ then
     cd ../
     rm -rf build
     mkdir build && cd build
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DBUILD_TESTING=ON ..
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=OPENMP ..
     cmake --build . -j 8
     cd ../wk/
 fi
 
 export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
-export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
-../build/tests/executors/google-tests-executors
-../build/tests/stdpar/google-tests-stdpar
+mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
+
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode $PJM_MPI_PROC \
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf.json

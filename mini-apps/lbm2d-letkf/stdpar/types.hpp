@@ -17,8 +17,8 @@ namespace stdex = std::experimental;
   template <typename RealType> using Complex = thrust::complex<RealType>;
 #else
   #include <complex>
-  using default_layout = stdex::layout_right;
-  using default_iterate_layout = stdex::layout_right;
+  using default_layout = stdex::layout_left;
+  using default_iterate_layout = stdex::layout_left;
   template <typename RealType> using Complex = std::complex<RealType>;
   #define SIMD_WIDTH 8
   #include<omp.h>

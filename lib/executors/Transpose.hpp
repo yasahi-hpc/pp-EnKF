@@ -6,85 +6,18 @@
 #include <array>
 #include <vector>
 #include <experimental/mdspan>
-#include <cublas_v2.h>
 #include "../Iteration.hpp"
 #include "Parallel_For.hpp"
+#if defined(ENABLE_OPENMP)
+  #include "../openmp_linalg.hpp"
+#elif defined(_NVHPC_CUDA) || defined(__CUDACC__)
+  #include "../cuda_linalg.hpp"
+#else
+  #include "../openmp_linalg.hpp"
+#endif
 
 namespace Impl {
-  template <typename T>
-  cublasStatus_t geam(cublasHandle_t handle,
-          cublasOperation_t transa,
-          cublasOperation_t transb,
-          int m, int n,
-          const T* alpha,
-          const T* A, int lda,
-          const T* beta,
-          const T* B, int ldb,
-          T* C, int ldc
-      );
-  
-  template <>
-  cublasStatus_t geam(cublasHandle_t handle,
-          cublasOperation_t transa,
-          cublasOperation_t transb,
-          int m, int n,
-          const float* alpha,
-          const float* A, int lda,
-          const float* beta,
-          const float* B, int ldb,
-          float* C, int ldc
-      ) {
-    return cublasSgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc);
-  }
-  
-  template <>
-  cublasStatus_t geam(cublasHandle_t handle,
-          cublasOperation_t transa,
-          cublasOperation_t transb,
-          int m, int n,
-          const double* alpha,
-          const double* A, int lda,
-          const double* beta,
-          const double* B, int ldb,
-          double* C, int ldc
-      ) {
-    return cublasDgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc);
-  }
-
-  // 2D transpose
-  template <class InputView, class OutputView,
-        std::enable_if_t<InputView::rank()==2 && OutputView::rank()==2, std::nullptr_t> = nullptr>
-  void transpose(const InputView& in, OutputView& out) {
-    static_assert( std::is_same_v<typename InputView::value_type, typename OutputView::value_type> );
-    static_assert( std::is_same_v<typename InputView::layout_type, typename OutputView::layout_type> );
-    assert( in.extent(0) == out.extent(1) );
-    assert( in.extent(1) == out.extent(0) );
-  
-    using value_type = InputView::value_type;
-    constexpr value_type alpha = 1;
-    constexpr value_type beta = 0;
-    // transpose by cublas
-    cublasHandle_t handle;
-    cublasCreate(&handle);
-  
-    geam(handle,
-         CUBLAS_OP_T,
-         CUBLAS_OP_T,
-         in.extent(1),
-         in.extent(0),
-         &alpha,
-         in.data_handle(),
-         in.extent(0),
-         &beta,
-         in.data_handle(),
-         in.extent(0),
-         out.data_handle(),
-         out.extent(0)
-        );
-  
-    cublasDestroy(handle);
-  }
-
+  /* Transpose batched matrix */
   template <class InputView, class OutputView,
           std::enable_if_t<InputView::rank()==3 && OutputView::rank()==3, std::nullptr_t> = nullptr>
   void transpose(const InputView& in, OutputView& out, const std::array<int, 3>& axes) {

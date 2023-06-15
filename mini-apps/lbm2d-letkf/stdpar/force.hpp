@@ -26,7 +26,6 @@ public:
   Force()=delete;
   Force(Config& conf) : conf_(conf) {
     init_forces(conf);
-    // [Y.A] Disable force for the moment 
     update_forces();
   }
 
