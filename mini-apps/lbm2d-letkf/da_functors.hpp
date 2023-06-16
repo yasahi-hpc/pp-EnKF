@@ -23,6 +23,8 @@ public:
     ny_ = static_cast<int>(ny);
     Q_ = conf_.phys_.Q_;
     c_ = conf_.settings_.c_;
+    alpha_ = conf_.settings_.da_nud_rate_;
+    obs_interval_ = conf_.settings_.obs_interval_;
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
