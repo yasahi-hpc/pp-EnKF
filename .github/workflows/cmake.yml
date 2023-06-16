@@ -46,7 +46,8 @@ jobs:
       # Build your program with the given configuration
       run: |
         for backend in ${{ env.backends }}; do
-          docker run -v ${{github.workspace}}:/work ${{ env.container }} cmake --build build_${backend} --config ${{env.BUILD_TYPE}} -- VERBOSE=1 -j 8
+          docker run -v ${{github.workspace}}:/work ${{ env.container }} cmake --build build_${backend} --config ${{env.BUILD_TYPE}} -j 8
+          #docker run -v ${{github.workspace}}:/work ${{ env.container }} cmake --build build_${backend} --config ${{env.BUILD_TYPE}} -- VERBOSE=1 -j 8
         done
 
     - name: Test
