@@ -40,7 +40,7 @@ private:
   
 public:
   LBM2D()=delete;
-  LBM2D(Config& conf) : Model(conf) {}
+  LBM2D(Config& conf, IOConfig& io_conf) : Model(conf, io_conf) {}
   ~LBM2D() override {}
 
 public:
@@ -55,6 +55,10 @@ public:
     double sigma = conf_.phys_.sigma_;
     int ensemble_id = conf_.settings_.ensemble_idx_;
     is_master_ = (ensemble_id == 0);
+    is_reference_ = conf_.settings_.is_reference_;
+    if(!is_reference_) {
+      ensemble_id += 334; // For DA case, starting with different initial condition
+    }
 
     // Allocate data
     vor_ = RealView2D("vor", nx, ny);
@@ -139,23 +143,23 @@ public:
     // Initialize force term
     force_ = std::move( std::unique_ptr<Force>(new Force(conf_)) );
 
+
     // Initialize IO
-    const std::string prefix = "io";
+    const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
 
     // Create directories if not exist
-    std::vector<std::string> dirs({"calc", "nature", "observed"});
+    std::vector<std::string> dirs({"calc"});
+    if(is_reference_) dirs.push_back("observed");
+
     for(auto dir_name : dirs) {
-      std::string full_path = prefix + "/" + dir_name + "/ens" + Impl::zfill(ensemble_id);
+      std::string full_path = out_dir + "/" + dir_name + "/ens" + Impl::zfill(conf_.settings_.ensemble_idx_);
       directory_names_[dir_name] = full_path;
     }
 
     Impl::mkdirs(directory_names_.at("calc"), 0755);
-    if(is_master_) {
-      Impl::mkdirs(directory_names_.at("nature"), 0755);
+    if(is_master_ && is_reference_) {
       Impl::mkdirs(directory_names_.at("observed"), 0755);
     }
-
-    is_reference_ = conf_.settings_.is_reference_;
   }
 
   void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) {
@@ -202,7 +206,7 @@ public:
 
     // Save values calculated by this ensemble member
     // Save simulation results without noises
-    std::string sim_result_name = is_reference_ ? "nature" : "calc";
+    std::string sim_result_name = "calc";
     auto rho = data_vars->rho();
     auto u = data_vars->u();
     auto v = data_vars->v();
