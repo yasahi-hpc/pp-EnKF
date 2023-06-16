@@ -7,8 +7,8 @@
 
 class Nudging : public DA_Model {
 public:
-  Nudging(Config& conf) : DA_Model(conf) {}
-  Nudging(Config& conf, MPIConfig& mpi_conf)=delete;
+  Nudging(Config& conf, IOConfig& io_conf) : DA_Model(conf, io_conf) {}
+  Nudging(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf)=delete;
   virtual ~Nudging(){}
   void initialize() {
     setFileInfo();

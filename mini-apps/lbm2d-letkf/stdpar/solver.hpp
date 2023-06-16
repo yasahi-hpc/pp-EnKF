@@ -9,6 +9,7 @@
 #include <utils/commandline_utils.hpp>
 #include "../timer.hpp"
 #include "../config.hpp"
+#include "../io_config.hpp"
 #include "../mpi_config.hpp"
 #include "models.hpp"
 #include "model_factories.hpp"
@@ -18,8 +19,9 @@ using json = nlohmann::json;
 
 class Solver {
   MPIConfig mpi_conf_;
+  IOConfig io_conf_;
   Config conf_;
-  std::string case_name_;
+  std::string sim_type_;
   std::unique_ptr<Model> model_;
   std::unique_ptr<DA_Model> da_model_;
   std::unique_ptr<DataVars> data_vars_;
@@ -42,8 +44,8 @@ public:
 
     // Allocate attributes
     data_vars_ = std::move( std::unique_ptr<DataVars>(new DataVars(conf_)) );
-    model_     = std::move( model_factory(case_name_, conf_) );
-    da_model_  = std::move( da_model_factory(case_name_, conf_, mpi_conf_) );
+    model_     = std::move( model_factory(sim_type_, conf_, io_conf_) );
+    da_model_  = std::move( da_model_factory(sim_type_, conf_, io_conf_, mpi_conf_) );
 
     model_->initialize(data_vars_);
     da_model_->initialize();
@@ -112,8 +114,10 @@ private:
       std::cout << "Input: \n" << json_data.dump(4) << std::endl;
     }
 
+    // Set simulation type
+    sim_type_ = json_data["Settings"]["sim_type"].get<std::string>();
+
     // Set Physics
-    case_name_                 = json_data["Physics"]["case_name"].get<std::string>();
     conf_.phys_.nu_            = json_data["Physics"]["nu"].get<double>();
     conf_.phys_.friction_rate_ = json_data["Physics"]["friction_rate"].get<double>();
     conf_.phys_.kf_            = json_data["Physics"]["kf"].get<double>();
@@ -133,12 +137,28 @@ private:
     conf_.settings_.lyapnov_      = json_data["Settings"]["lyapnov"].get<bool>();
     conf_.settings_.is_les_       = json_data["Settings"]["les"].get<bool>();
     conf_.settings_.da_nud_rate_  = json_data["Settings"]["da_nud_rate"].get<double>();
-
-    if(case_name_ == "letkf") {
+    if(json_data["Settings"].contains("rloc_len") ) {
       conf_.settings_.rloc_len_ = json_data["Settings"]["rloc_len"].get<int>();
-      conf_.settings_.beta_     = json_data["Settings"]["beta"].get<double>();
     }
-    conf_.settings_.is_reference_ = (case_name_ == "nature");
+
+    if(json_data["Settings"].contains("beta") ) {
+      conf_.settings_.beta_ = json_data["Settings"]["beta"].get<double>();
+    }
+
+    // IO settings
+    io_conf_.base_dir_     = json_data["Settings"]["base_dir"].get<std::string>();
+    io_conf_.case_name_    = json_data["Settings"]["case_name"].get<std::string>();
+    if(json_data["Settings"].contains("in_case_name")) {
+      io_conf_.in_case_name_ = json_data["Settings"]["in_case_name"].get<std::string>();
+    }
+
+    // Saving json file to output directory
+    const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
+    Impl::mkdirs(out_dir, 0755);
+    std::ofstream o(out_dir + "/input.json");
+    o << std::setw(4) << json_data << std::endl;
+
+    conf_.settings_.is_reference_ = (sim_type_ == "nature");
 
     auto nx = json_data["Settings"]["nx"].get<int>();
     auto ny = json_data["Settings"]["ny"].get<int>();
@@ -166,6 +186,7 @@ private:
 
     if(mpi_conf_.is_master()) {
       std::cout
+          << "  sim_type = " << sim_type_ << std::endl
           << "  nx = " << nx << std::endl
           << "  nu = " << nu << " m2/s" << std::endl
           << "  u_ref = " << u_ref << " m/s" << std::endl

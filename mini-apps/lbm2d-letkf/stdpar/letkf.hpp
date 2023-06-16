@@ -29,8 +29,9 @@ private:
   int n_obs_;
 
 public:
-  LETKF(Config& conf)=delete;
-  LETKF(Config& conf, MPIConfig& mpi_conf) : DA_Model(conf, mpi_conf), mpi_conf_(mpi_conf) {}
+  LETKF(Config& conf, IOConfig& io_conf)=delete;
+  LETKF(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf) : DA_Model(conf, io_conf), mpi_conf_(mpi_conf) {}
+
   virtual ~LETKF(){}
   void initialize() {
     setFileInfo();
