@@ -14,8 +14,9 @@
     },
     "Settings": {
         "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
-        "sim_type": "nature",
-        "case_name": "nature",
+        "sim_type": "no_da",
+        "case_name": "no_da",
+        "in_case_name": "nature",
         "nx": 256,
         "ny": 256,
         "spinup": 1000,

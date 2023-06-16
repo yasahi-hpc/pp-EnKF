@@ -1,7 +1,5 @@
 {
     "Physics": {
-        "out_dir": "/work/jh220030a/i18048/data",
-        "case_name": "letkf",
         "rho_ref": 1.0,
         "u_ref": 1.0,
         "nu": 1.0e-4,
@@ -15,11 +13,15 @@
         "obs_error_u": 0.1
     },
     "Settings": {
+        "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
+        "sim_type": "letkf",
+        "case_name": "letkf",
+        "in_case_name": "nature",
         "nx": 256,
         "ny": 256,
-        "spinup": 10000,
+        "spinup": 1000,
         "nbiter": 1000,
-        "io_interval": 20,
+        "io_interval": 100,
         "da_interval": 10,
         "obs_interval": 1,
         "lyapnov": false,
