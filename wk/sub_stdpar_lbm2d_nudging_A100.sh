@@ -1,10 +1,10 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=6:00:00"
+#PJM -L "elapse=2:00:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=4
+#PJM --mpi proc=1
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -38,5 +38,5 @@ export UCX_RNDV_FRAG_MEM_TYPE=cuda
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
     ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
 
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf.json
+mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nudging.json 
