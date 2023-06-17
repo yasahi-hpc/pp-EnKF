@@ -37,6 +37,12 @@ public:
 enum TimerEnum : int {Total,
                       MainLoop,
                       DA,
+                      DA_Load,
+                      DA_Set_Matrix,
+                      DA_All2All,
+                      DA_Broadcast,
+                      DA_LETKF,
+                      DA_Update,
                       Diag,
                       LBMSolver,
                       Nb_timers};
@@ -44,11 +50,17 @@ enum TimerEnum : int {Total,
 static void defineTimers(std::vector<Timer*> &timers) {
   // Set timers
   timers.resize(Nb_timers);
-  timers[TimerEnum::Total]     = new Timer("total");
-  timers[TimerEnum::MainLoop]  = new Timer("MainLoop");
-  timers[TimerEnum::DA]        = new Timer("DA");
-  timers[TimerEnum::Diag]      = new Timer("diag");
-  timers[TimerEnum::LBMSolver] = new Timer("lbm");
+  timers[TimerEnum::Total]         = new Timer("total");
+  timers[TimerEnum::MainLoop]      = new Timer("MainLoop");
+  timers[TimerEnum::DA]            = new Timer("DA");
+  timers[TimerEnum::DA_Load]       = new Timer("DA_Load");
+  timers[TimerEnum::DA_Set_Matrix] = new Timer("DA_Set_Matrix");
+  timers[TimerEnum::DA_All2All]    = new Timer("DA_All2All");
+  timers[TimerEnum::DA_Broadcast]  = new Timer("DA_Broadcast");
+  timers[TimerEnum::DA_LETKF]      = new Timer("DA_LETKF");
+  timers[TimerEnum::DA_Update]     = new Timer("DA_Update");
+  timers[TimerEnum::Diag]          = new Timer("diag");
+  timers[TimerEnum::LBMSolver]     = new Timer("lbm");
 }
 
 static void printTimers(std::vector<Timer*> &timers) {

@@ -14,7 +14,7 @@ public:
     setFileInfo();
   }
 
-  void apply(std::unique_ptr<DataVars>& data_vars, const int it){
+  void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0) return;
     load(data_vars, it); // loading rho_obs, u_obs, v_obs
 

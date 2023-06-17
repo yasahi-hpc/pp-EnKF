@@ -70,7 +70,7 @@ public:
       timers_[TimerEnum::MainLoop]->begin();
 
       timers_[TimerEnum::DA]->begin();
-      da_model_->apply(data_vars_, it);
+      da_model_->apply(data_vars_, it, timers_);
       timers_[TimerEnum::DA]->end();
 
       timers_[TimerEnum::Diag]->begin();
