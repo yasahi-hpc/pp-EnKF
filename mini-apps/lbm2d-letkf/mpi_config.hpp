@@ -37,6 +37,7 @@ public:
   int size() const { return size_; }
   int rank() const { return rank_; }
   auto comm() const { return communicator_; }
+  void fence() const { MPI_Barrier(communicator_); }
 };
 
 #endif

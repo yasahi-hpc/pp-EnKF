@@ -6,13 +6,14 @@
 template <class mdspan3d_type, class mdspan2d_type>
 struct nudging_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_;
   int nx_, ny_;
   int Q_;
-  double c_;
-  double alpha_;
+  value_type c_;
+  value_type alpha_;
   int obs_interval_ = 1;
 
 public:
@@ -22,8 +23,8 @@ public:
     nx_ = static_cast<int>(nx);
     ny_ = static_cast<int>(ny);
     Q_ = conf_.phys_.Q_;
-    c_ = conf_.settings_.c_;
-    alpha_ = conf_.settings_.da_nud_rate_;
+    c_ = static_cast<value_type>(conf_.settings_.c_);
+    alpha_ = static_cast<value_type>(conf_.settings_.da_nud_rate_);
     obs_interval_ = conf_.settings_.obs_interval_;
   }
 
@@ -45,18 +46,18 @@ private:
   int periodic(const int i, const int n) const {return (i+n)%n; }
 
   MDSPAN_FORCE_INLINE_FUNCTION
-  double feq(double rho, double u, double v, int q) const {
-    auto weight = conf_.phys_.weights_[q];
-    auto qx = conf_.phys_.q_[0][q];
-    auto qy = conf_.phys_.q_[1][q];
+  value_type feq(value_type rho, value_type u, value_type v, int q) const {
+    value_type weight = static_cast<value_type>(conf_.phys_.weights_[q]);
+    value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+    value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
 
-    auto uu = (u*u + v*v) / (c_*c_);
-    auto uc = (u*qx + v*qy) / c_;
+    value_type uu = (u*u + v*v) / (c_*c_);
+    value_type uc = (u*qx + v*qy) / c_;
     return weight * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
-  double maybeLinearInterp2D(const mdspan2d_type& var, int ix, int iy) const {
+  value_type maybeLinearInterp2D(const mdspan2d_type& var, int ix, int iy) const {
     if(obs_interval_ == 1) {
       return var(ix, iy);
     } else {
@@ -65,18 +66,18 @@ private:
       const int is = (iy / obs_interval_) * obs_interval_;
       const int in = is + obs_interval_;
 
-      const auto dx = (ix - iw) / static_cast<double>(obs_interval_);
-      const auto dy = (iy - is) / static_cast<double>(obs_interval_);
+      const value_type dx = (ix - iw) / static_cast<value_type>(obs_interval_);
+      const value_type dy = (iy - is) / static_cast<value_type>(obs_interval_);
 
       const auto iwp = periodic(iw, nx_);
       const auto iep = periodic(ie, nx_);
       const auto isp = periodic(is, ny_);
       const auto inp = periodic(in, ny_);
 
-      auto var_interp = (1.0 - dx) * (1.0 - dy) * var(iwp, isp)
-                      +        dx  * (1.0 - dy) * var(iep, isp)
-                      + (1.0 - dx) *        dy  * var(iwp, inp)
-                      +        dx  *        dy  * var(iep, inp);
+      value_type var_interp = (1.0 - dx) * (1.0 - dy) * var(iwp, isp)
+                            +        dx  * (1.0 - dy) * var(iep, isp)
+                            + (1.0 - dx) *        dy  * var(iwp, inp)
+                            +        dx  *        dy  * var(iep, inp);
       return var_interp;
     }
   }
@@ -146,8 +147,8 @@ public:
       const value_type d = sqrt(dx*dx + dy*dy) / cutoff_;
       const value_type gaspari_cohn =
           (d <= 0) ? 1 :
-          (d <= 1) ? -d*d*d*d*d/4. + d*d*d*d/2. + d*d*d*5./8. - d*d*5./3. + 1 :
-          (d <= 2) ? d*d*d*d*d/12. - d*d*d*d/2. + d*d*d*5./8. + d*d*5./3. - d*5 + 4 - 2./3./d :
+          (d <= 1) ? -d*d*d*d*d/4.0 + d*d*d*d/2.0 + d*d*d*5.0/8.0 - d*d*5.0/3.0 + 1 :
+          (d <= 2) ? d*d*d*d*d/12.0 - d*d*d*d/2.0 + d*d*d*5.0/8.0 + d*d*5.0/3.0 - d*5.0 + 4.0 - 2.0/3.0/d :
           0;
 
       rR_(ixy_obs, ixy_obs, ib) *= gaspari_cohn;

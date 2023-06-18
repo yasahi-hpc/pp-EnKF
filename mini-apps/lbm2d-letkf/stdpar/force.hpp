@@ -10,8 +10,9 @@
 
 struct Force {
 private:
+  using value_type = RealView2D::value_type;
   Config conf_;
-  Impl::Random<double> rand_;
+  Impl::Random<value_type> rand_;
   RealView1D x_, y_;
   RealView1D kx_, ky_;
   RealView1D amp_;
@@ -19,8 +20,8 @@ private:
   RealView2D fx_, fy_;
   std::size_t n_rand_buf_;
   std::size_t i_rand_outdated_;
-  const double mean_ = 0.0;
-  const double stddev_ = 0.84089641525;
+  const value_type mean_ = 0.0;
+  const value_type stddev_ = 0.84089641525;
 
 public:
   Force()=delete;
@@ -59,14 +60,14 @@ public:
     auto force_lambda = [=](const int ix, const int iy) {
       const auto x_tmp = x(ix);
       const auto y_tmp = y(iy);
-      double fx_tmp = 0.0, fy_tmp = 0.0;
+      value_type fx_tmp = 0.0, fy_tmp = 0.0;
       for(std::size_t n=0; n<force_n; n++) {
         const auto kx_tmp = kx(n);
         const auto ky_tmp = ky(n);
         const auto theta = 2*M_PI*(kx_tmp*x_tmp + ky_tmp*y_tmp);
         const auto sine = sin(theta);
         const auto cosi = cos(theta);
-        const double r[4] = {
+        const value_type r[4] = {
           rand_pool(n, 0, shift),
           rand_pool(n, 1, shift),
           rand_pool(n, 2, shift),
@@ -77,7 +78,7 @@ public:
         fx_tmp += amp_tmp * 2 * M_PI * ky_tmp    * ((r[0]*kx_tmp + r[1]*ky_tmp)*sine + (r[2]*kx_tmp + r[3]*ky_tmp)*cosi);
         fy_tmp += amp_tmp * 2 * M_PI * (-kx_tmp) * ((r[0]*kx_tmp + r[1]*ky_tmp)*sine + (r[2]*kx_tmp + r[3]*ky_tmp)*cosi);
       }
-      constexpr double R = 0.0;
+      constexpr value_type R = 0.0;
       fx(ix, iy) = R * fx(ix, iy) + sqrt(1-R*R) * fx_tmp;
       fy(ix, iy) = R * fy(ix, iy) + sqrt(1-R*R) * fy_tmp;
     };
@@ -90,20 +91,20 @@ private:
   void init_forces(Config& conf) {
     // initilize spectrum of force
     constexpr int max_search_nmode = 10000;
-    const double kf = conf.phys_.kf_;
-    const double amp_scale = conf.phys_.fkf_;
-    constexpr double sigma = 1; // gaussian stdev
-    constexpr double dk = 2; // clipping width
+    const value_type kf = static_cast<value_type>(conf.phys_.kf_);
+    const value_type amp_scale = static_cast<value_type>(conf.phys_.fkf_);
+    constexpr value_type sigma = 1; // gaussian stdev
+    constexpr value_type dk = 2; // clipping width
     const int kmax_search = int(kf+dk);
     long double asum = 0;
-    std::vector<double> force_kx;
-    std::vector<double> force_ky;
-    std::vector<double> force_amp;
+    std::vector<value_type> force_kx;
+    std::vector<value_type> force_ky;
+    std::vector<value_type> force_amp;
     for(int ky=0; ky<kmax_search; ky++) { for(int kx=0; kx<kmax_search; kx++) {
       if(kx == 0 and ky == 0) { continue; }
       const auto k = std::sqrt(ky*ky + kx*kx);
       if(kf-dk <= k and k <= kf+dk) {  /// maltrud91
-        const double amp = std::exp( - (k-kf)*(k-kf) / sigma ); /// Gaussian decay by |k-kf|
+        const value_type amp = std::exp( - (k-kf)*(k-kf) / sigma ); /// Gaussian decay by |k-kf|
         asum += amp;
         force_kx.push_back(kx);
         force_ky.push_back(ky);
@@ -139,9 +140,9 @@ private:
       std::cout << "force: " << "n=" << int(force_kx.size()) << ", sum=" << asum << std::endl;
     }
 
-    constexpr double config_t0__ = 1.;
-    const double force_total_amp = amp_scale * conf.phys_.u_ref_ / config_t0__;
-    for(double& amp: force_amp) {
+    constexpr value_type config_t0__ = 1.0;
+    const value_type force_total_amp = amp_scale * static_cast<value_type>(conf.phys_.u_ref_) / config_t0__;
+    for(value_type& amp: force_amp) {
       amp *= force_total_amp / asum;
     }
 
@@ -161,12 +162,12 @@ private:
     fy_ = RealView2D("fy", nx, ny);
 
     for(std::size_t i=0; i<nx; i++) {
-      double tmp_x = ( static_cast<double>(i) - static_cast<double>(nx/2) ) / static_cast<double>(nx);
+      value_type tmp_x = ( static_cast<value_type>(i) - static_cast<value_type>(nx/2) ) / static_cast<value_type>(nx);
       x_(i) = tmp_x;
     }
 
     for(std::size_t i=0; i<ny; i++) {
-      double tmp_y = ( static_cast<double>(i) - static_cast<double>(ny/2) ) / static_cast<double>(ny);
+      value_type tmp_y = ( static_cast<value_type>(i) - static_cast<value_type>(ny/2) ) / static_cast<value_type>(ny);
       y_(i) = tmp_y;
     }
 

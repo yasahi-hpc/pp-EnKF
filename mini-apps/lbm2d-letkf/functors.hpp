@@ -9,16 +9,17 @@ inline int periodic(const int i, const int n) {return (i+n)%n; }
 template <class mdspan3d_type, class mdspan2d_type>
 struct init_feq_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan2d_type rho_, u_, v_;
   mdspan3d_type f_;
 
-  double c_;
+  value_type c_;
 
 public:
   init_feq_functor(const Config& conf, const mdspan2d_type& rho, const mdspan2d_type& u, const mdspan2d_type& v, mdspan3d_type& f)
     : conf_(conf), f_(f), rho_(rho), u_(u), v_(v) {
-    c_ = conf_.settings_.c_;
+    c_ = static_cast<value_type>(conf_.settings_.c_);
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
@@ -31,13 +32,13 @@ public:
 
 private:
   MDSPAN_FORCE_INLINE_FUNCTION
-  double feq(double rho, double u, double v, int q) const {
-    auto weight = conf_.phys_.weights_[q];
-    auto qx = conf_.phys_.q_[0][q];
-    auto qy = conf_.phys_.q_[1][q];
+  value_type feq(value_type rho, value_type u, value_type v, int q) const {
+    value_type weight = static_cast<value_type>(conf_.phys_.weights_[q]);
+    value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+    value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
 
-    auto uu = (u*u + v*v) / (c_*c_);
-    auto uc = (u*qx + v*qy) / c_;
+    value_type uu = (u*u + v*v) / (c_*c_);
+    value_type uc = (u*qx + v*qy) / c_;
     return weight * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
   }
 };
@@ -45,10 +46,11 @@ private:
 template <class mdspan2d_type>
 struct vorticity_functor {
 private:
+  using value_type = mdspan2d_type::value_type;
   Config conf_;
   mdspan2d_type u_, v_, vor_;
   int nx_, ny_;
-  double dx_;
+  value_type dx_;
 
 public:
   vorticity_functor(const Config& conf, const mdspan2d_type& u, const mdspan2d_type& v, mdspan2d_type& vor) 
@@ -56,7 +58,7 @@ public:
     auto [nx, ny] = conf_.settings_.n_;
     nx_ = static_cast<int>(nx);
     ny_ = static_cast<int>(ny);
-    dx_ = conf_.settings_.dx_;
+    dx_ = static_cast<value_type>(conf_.settings_.dx_);
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
@@ -66,10 +68,10 @@ public:
     const auto iyp1 = periodic(iy+1, ny_);
     const auto iym1 = periodic(iy-1, ny_);
 
-    const auto ux = (u_(ixp1, iy) - u_(ixm1, iy)) / (2*dx_);
-    const auto uy = (u_(ix, iyp1) - u_(ix, iym1)) / (2*dx_);
-    const auto vx = (v_(ixp1, iy) - v_(ixm1, iy)) / (2*dx_);
-    const auto vy = (v_(ix, iyp1) - v_(ix, iym1)) / (2*dx_);
+    const value_type ux = (u_(ixp1, iy) - u_(ixm1, iy)) / (2*dx_);
+    const value_type uy = (u_(ix, iyp1) - u_(ix, iym1)) / (2*dx_);
+    const value_type vx = (v_(ixp1, iy) - v_(ixm1, iy)) / (2*dx_);
+    const value_type vy = (v_(ix, iyp1) - v_(ix, iym1)) / (2*dx_);
     vor_(ix, iy) = vx - uy;
   }
 };
@@ -77,10 +79,11 @@ public:
 template <class mdspan2d_type>
 struct sgs_functor {
 private:
+  using value_type = mdspan2d_type::value_type;
   Config conf_;
   mdspan2d_type rho_, u_, v_, nu_;
   int nx_, ny_;
-  double dx_, dx_sqr_, cs_sqr_;
+  value_type dx_, dx_sqr_, cs_sqr_;
   bool is_les_csm_ = false; // This should be false for 2D turb?
 
 public:
@@ -90,9 +93,9 @@ public:
     nx_ = static_cast<int>(nx);
     ny_ = static_cast<int>(ny);
 
-    dx_ = conf_.settings_.dx_;
+    dx_ = static_cast<value_type>(conf_.settings_.dx_);
     dx_sqr_ = dx_ * dx_;
-    auto cs = conf_.phys_.cs_; // 0.1 -- 0.2 ??
+    value_type cs = static_cast<value_type>(conf_.phys_.cs_); // 0.1 -- 0.2 ??
     cs_sqr_ = cs * cs;
   }
 
@@ -103,22 +106,22 @@ public:
     const auto iyp1 = periodic(iy+1, ny_);
     const auto iym1 = periodic(iy-1, ny_);
 
-    const auto ux = (u_(ixp1, iy) - u_(ixm1, iy)) / (2*dx_);
-    const auto uy = (u_(ix, iyp1) - u_(ix, iym1)) / (2*dx_);
-    const auto vx = (v_(ixp1, iy) - v_(ixm1, iy)) / (2*dx_);
-    const auto vy = (v_(ix, iyp1) - v_(ix, iym1)) / (2*dx_);
-    const auto s00 = ux;
-    const auto s01 = static_cast<double>(0.5) * (uy + vx);
-    const auto s10 = s01;
-    const auto s11 = vy;
+    const value_type ux = (u_(ixp1, iy) - u_(ixm1, iy)) / (2*dx_);
+    const value_type uy = (u_(ix, iyp1) - u_(ix, iym1)) / (2*dx_);
+    const value_type vx = (v_(ixp1, iy) - v_(ixm1, iy)) / (2*dx_);
+    const value_type vy = (v_(ix, iyp1) - v_(ix, iym1)) / (2*dx_);
+    const value_type s00 = ux;
+    const value_type s01 = static_cast<value_type>(0.5) * (uy + vx);
+    const value_type s10 = s01;
+    const value_type s11 = vy;
 
-    const auto ss = sqrt(2 * (s00*s00 + s01*s10 + s10*s01 + s11*s11));
+    const value_type ss = sqrt(2 * (s00*s00 + s01*s10 + s10*s01 + s11*s11));
 
     if(is_les_csm_) {
-      const auto qq = -static_cast<double>(0.5) * (ux*ux + uy*vx + vx*uy + vy*vy);
-      const auto ee = static_cast<double>(0.5) * (ux*ux + uy*uy + vx*vx + vy*vy);
-      const auto fcs = qq/ee;
-      nu_(ix, iy) = 0.05 * pow(abs(fcs), static_cast<double>(1.5)) * dx_sqr_ * ss;
+      const value_type qq = -static_cast<value_type>(0.5) * (ux*ux + uy*vx + vx*uy + vy*vy);
+      const value_type ee = static_cast<value_type>(0.5) * (ux*ux + uy*uy + vx*vx + vy*vy);
+      const value_type fcs = qq/ee;
+      nu_(ix, iy) = 0.05 * pow(abs(fcs), static_cast<value_type>(1.5)) * dx_sqr_ * ss;
     } else {
       nu_(ix, iy) = cs_sqr_ * dx_sqr_ * ss;
     }
@@ -128,6 +131,7 @@ public:
 template <class mdspan3d_type>
 struct streaming_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_, fn_;
   int nx_, ny_;
@@ -142,8 +146,8 @@ public:
 
   MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy, const int q) const {
-    const auto qx = conf_.phys_.q_[0][q];
-    const auto qy = conf_.phys_.q_[1][q];
+    const value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+    const value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
     int ix_out = periodic(ix - qx, nx_);
     int iy_out = periodic(iy - qy, ny_);
     fn_(ix, iy, q) = f_(ix_out, iy_out, q);
@@ -153,10 +157,11 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct macroscopic_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_;
-  double dt_, c_;
+  value_type dt_, c_;
   int Q_;
 
 public:
@@ -164,15 +169,15 @@ public:
                       mdspan2d_type& rho, mdspan2d_type& u, mdspan2d_type& v)
     : conf_(conf), f_(f), rho_(rho), u_(u), v_(v) {
     Q_ = conf_.phys_.Q_;
-    c_ = conf_.settings_.c_;
-    dt_ = conf_.settings_.dt_;
+    c_ = static_cast<value_type>(conf_.settings_.c_);
+    dt_ = static_cast<value_type>(conf_.settings_.dt_);
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
-    double rho_tmp = 0.0;
-    double u_tmp = 0.0;
-    double v_tmp = 0.0;
+    value_type rho_tmp = 0.0;
+    value_type u_tmp = 0.0;
+    value_type v_tmp = 0.0;
 
     for(int q=0; q<Q_; q++) {
       auto f_tmp = f_(ix, iy, q);
@@ -180,8 +185,8 @@ public:
       rho_tmp += f_tmp;
 
       // 1st order moment
-      const auto qx = conf_.phys_.q_[0][q];
-      const auto qy = conf_.phys_.q_[1][q];
+      const value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+      const value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
       u_tmp += f_tmp * c_ * qx;
       v_tmp += f_tmp * c_ * qy;
     }
@@ -195,10 +200,11 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct streaming_macroscopic_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_, fn_;
   mdspan2d_type rho_, u_, v_;
-  double dt_, c_;
+  value_type dt_, c_;
   int nx_, ny_;
 
 public:
@@ -208,22 +214,22 @@ public:
     auto [nx, ny] = conf_.settings_.n_;
     nx_ = static_cast<int>(nx);
     ny_ = static_cast<int>(ny);
-    c_ = conf_.settings_.c_;
-    dt_ = conf_.settings_.dt_;
+    c_  = static_cast<value_type>(conf_.settings_.c_);
+    dt_ = static_cast<value_type>(conf_.settings_.dt_);
 
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
     constexpr int Q = 9;
-    double rho_tmp = 0.0;
-    double u_tmp = 0.0;
-    double v_tmp = 0.0;
+    value_type rho_tmp = 0.0;
+    value_type u_tmp = 0.0;
+    value_type v_tmp = 0.0;
 
-    double f_tmp[Q];
+    value_type f_tmp[Q];
     for(int q=0; q<Q; q++) {
-      const auto qx = conf_.phys_.q_[0][q];
-      const auto qy = conf_.phys_.q_[1][q];
+      const value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+      const value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
       int ix_out = periodic(ix - qx, nx_);
       int iy_out = periodic(iy - qy, ny_);
       f_tmp[q] = f_(ix_out, iy_out, q);
@@ -237,8 +243,8 @@ public:
       rho_tmp += f_tmp[q];
 
       // 1st order moment
-      const auto qx = conf_.phys_.q_[0][q];
-      const auto qy = conf_.phys_.q_[1][q];
+      const value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+      const value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
       u_tmp += f_tmp[q] * c_ * qx;
       v_tmp += f_tmp[q] * c_ * qy;
     }
@@ -252,26 +258,27 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct collision_srt_functor {
 private:
+  using value_type = mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_, fx_, fy_, nu_;
   bool is_les_ = true;
-  double c_, dt_;
-  double omega_;
-  double u_ref_;
-  double nu_ref_;
-  double friction_rate_;
+  value_type c_, dt_;
+  value_type omega_;
+  value_type u_ref_;
+  value_type nu_ref_;
+  value_type friction_rate_;
 
 public:
   collision_srt_functor(const Config& conf, mdspan3d_type& f, const mdspan2d_type& fx, const mdspan2d_type& fy,
                         const mdspan2d_type& rho, const mdspan2d_type& u, const mdspan2d_type& v, const mdspan2d_type& nu)
     : conf_(conf), f_(f), fx_(fx), fy_(fy), rho_(rho), u_(u), v_(v), nu_(nu) {
-    c_ = conf_.settings_.c_;
-    dt_ = conf_.settings_.dt_;
-    omega_ = conf_.settings_.omega_;
-    nu_ref_ = conf_.phys_.nu_;
-    u_ref_  = conf_.phys_.u_ref_;
-    friction_rate_ = conf_.phys_.friction_rate_;
+    c_             = static_cast<value_type>(conf_.settings_.c_);
+    dt_            = static_cast<value_type>(conf_.settings_.dt_);
+    omega_         = static_cast<value_type>(conf_.settings_.omega_);
+    nu_ref_        = static_cast<value_type>(conf_.phys_.nu_);
+    u_ref_         = static_cast<value_type>(conf_.phys_.u_ref_);
+    friction_rate_ = static_cast<value_type>(conf_.phys_.friction_rate_);
     is_les_ = conf_.settings_.is_les_;
   }
 
@@ -279,16 +286,16 @@ public:
   void operator()(const int ix, const int iy) const {
     // This Q must be a compile time constant, otherwise it fails.
     constexpr int Q = 9;
-    double f_tmp[Q];
+    value_type f_tmp[Q];
     for(int q=0; q<Q; q++) {
       f_tmp[q] = f_(ix, iy, q);
     }
 
-    auto omega_tmp = omega_;
+    value_type omega_tmp = omega_;
     if(is_les_) {
-      const auto nu_sgs = nu_(ix, iy);
-      const auto nu = nu_ref_ + nu_sgs;
-      const auto tau = 0.5 + 3.0 * nu / (c_*c_*dt_);
+      const value_type nu_sgs = nu_(ix, iy);
+      const value_type nu = nu_ref_ + nu_sgs;
+      const value_type tau = 0.5 + 3.0 * nu / (c_*c_*dt_);
       omega_tmp = 1.0 / tau;
     }
 
@@ -318,29 +325,29 @@ public:
 
 private:
   MDSPAN_FORCE_INLINE_FUNCTION
-  double force_acc(double fx, double fy, int q, double rho, double u, double v, double omega) const {
-    const auto weight = conf_.phys_.weights_[q];
-    const auto qx = conf_.phys_.q_[0][q];
-    const auto qy = conf_.phys_.q_[1][q];
+  value_type force_acc(value_type fx, value_type fy, int q, value_type rho, value_type u, value_type v, value_type omega) const {
+    const value_type weight = static_cast<value_type>(conf_.phys_.weights_[q]);
+    const value_type qx     = static_cast<value_type>(conf_.phys_.q_[0][q]);
+    const value_type qy     = static_cast<value_type>(conf_.phys_.q_[1][q]);
 
-    const auto cx = u_ref_ * qx;
-    const auto cy = u_ref_ * qy;
-    const auto cs2 = c_ * c_ / 3;
-    const auto fx_tmp = (fx - friction_rate_ / dt_ * u) * dt_;
-    const auto fy_tmp = (fy - friction_rate_ / dt_ * v) * dt_;
+    const value_type cx = u_ref_ * qx;
+    const value_type cy = u_ref_ * qy;
+    const value_type cs2 = c_ * c_ / 3.0;
+    const value_type fx_tmp = (fx - friction_rate_ / dt_ * u) * dt_;
+    const value_type fy_tmp = (fy - friction_rate_ / dt_ * v) * dt_;
     auto f1 = (cx*fx_tmp + cy*fy_tmp) / cs2; // first-order term
     auto ret = f1 * weight * rho;
     return ret;
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
-  double feq(double rho, double u, double v, int q) const {
-    auto weight = conf_.phys_.weights_[q];
-    auto qx = conf_.phys_.q_[0][q];
-    auto qy = conf_.phys_.q_[1][q];
+  value_type feq(value_type rho, value_type u, value_type v, int q) const {
+    value_type weight = static_cast<value_type>(conf_.phys_.weights_[q]);
+    value_type qx     = static_cast<value_type>(conf_.phys_.q_[0][q]);
+    value_type qy     = static_cast<value_type>(conf_.phys_.q_[1][q]);
 
-    auto uu = (u*u + v*v) / (c_*c_);
-    auto uc = (u*qx + v*qy) / c_;
+    value_type uu = (u*u + v*v) / (c_*c_);
+    value_type uc = (u*qx + v*qy) / c_;
     return weight * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
   }
 };
