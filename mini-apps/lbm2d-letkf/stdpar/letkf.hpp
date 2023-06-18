@@ -70,6 +70,11 @@ public:
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0) return;
+    auto step = it / conf_.settings_.io_interval_;
+    if(step % conf_.settings_.da_interval_ != 0) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
+      return;
+    };
     if(mpi_conf_.is_master()) {
       timers[DA_Load]->begin();
       load(data_vars, it);

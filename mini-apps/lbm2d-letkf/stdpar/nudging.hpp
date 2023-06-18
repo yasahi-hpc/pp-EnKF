@@ -16,7 +16,14 @@ public:
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0) return;
+    auto step = it / conf_.settings_.io_interval_;
+    if(step % conf_.settings_.da_interval_ != 0) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
+      return;
+    };
+    timers[DA_Load]->begin();
     load(data_vars, it); // loading rho_obs, u_obs, v_obs
+    timers[DA_Load]->end();
 
     auto f       = data_vars->f().mdspan();
     auto rho_obs = data_vars->rho_obs().mdspan();
@@ -26,7 +33,9 @@ public:
     auto [nx, ny] = conf_.settings_.n_;
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
+    timers[DA_Update]->begin();
     Impl::for_each(policy2d, nudging_functor(conf_, rho_obs, u_obs, v_obs, f));
+    timers[DA_Update]->end();
   }
   void diag(){}
   void finalize(){}

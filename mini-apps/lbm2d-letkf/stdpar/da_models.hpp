@@ -48,10 +48,6 @@ protected:
 
   void load(std::unique_ptr<DataVars>& data_vars, const int it) {
     auto step = it / conf_.settings_.io_interval_;
-    if(step % conf_.settings_.da_interval_ != 0) {
-      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
-      return;
-    };
     from_file(data_vars->rho_obs(), step);
     from_file(data_vars->u_obs(), step);
     from_file(data_vars->v_obs(), step);
