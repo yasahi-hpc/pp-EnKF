@@ -9,6 +9,7 @@
 #include "../config.hpp"
 #include "../io_config.hpp"
 #include "../mpi_config.hpp"
+#include "../timer.hpp"
 #include "data_vars.hpp"
 
 class DA_Model {
@@ -27,7 +28,7 @@ public:
   }
   virtual ~DA_Model(){}
   virtual void initialize()=0;
-  virtual void apply(std::unique_ptr<DataVars>& data_vars, const int it)=0;
+  virtual void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers)=0;
   virtual void diag()=0;
   virtual void finalize()=0;
 
@@ -47,10 +48,6 @@ protected:
 
   void load(std::unique_ptr<DataVars>& data_vars, const int it) {
     auto step = it / conf_.settings_.io_interval_;
-    if(step % conf_.settings_.da_interval_ != 0) {
-      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
-      return;
-    };
     from_file(data_vars->rho_obs(), step);
     from_file(data_vars->u_obs(), step);
     from_file(data_vars->v_obs(), step);
@@ -75,7 +72,7 @@ public:
   NonDA(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf) : DA_Model(conf, io_conf, mpi_conf) {}
   virtual ~NonDA(){}
   void initialize() {}
-  void apply(std::unique_ptr<DataVars>& data_vars, const int it){};
+  void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){};
   void diag(){};
   void finalize(){};
 };

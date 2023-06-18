@@ -14,4 +14,6 @@ else()
     message(FATAL_ERROR "No parallel backend specified. One of CUDA, and OPENMP must be On.")
 endif()
 
+# Enable macro
+target_compile_definitions(lbm2d-letkf-stdpar PUBLIC $<$<BOOL:${USE_SINGLE_PRECISION}>: USE_SINGLE_PRECISION>)
 target_link_libraries(lbm2d-letkf-stdpar PUBLIC MPI::MPI_CXX math_lib nlohmann_json::nlohmann_json)

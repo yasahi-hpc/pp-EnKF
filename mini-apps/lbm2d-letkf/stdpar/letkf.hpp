@@ -68,22 +68,34 @@ public:
     Impl::for_each(policy3d, initialize_rR_functor(conf_, y_offset, rR));
   }
 
-  void apply(std::unique_ptr<DataVars>& data_vars, const int it){
+  void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0) return;
+    auto step = it / conf_.settings_.io_interval_;
+    if(step % conf_.settings_.da_interval_ != 0) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
+      return;
+    };
     if(mpi_conf_.is_master()) {
+      timers[DA_Load]->begin();
       load(data_vars, it);
+      timers[DA_Load]->end();
     }
-    setXandY(data_vars);
+    setXandY(data_vars, timers);
 
+    timers[DA_LETKF]->begin();
     letkf_solver_->solve();
+    timers[DA_LETKF]->end();
+
+    timers[DA_Update]->begin();
     update(data_vars);
+    timers[DA_Update]->end();
   }
 
   void diag(){}
   void finalize(){}
 
 private:
-  void setXandY(std::unique_ptr<DataVars>& data_vars) {
+  void setXandY(std::unique_ptr<DataVars>& data_vars, std::vector<Timer*>& timers) {
     /* Set X, Y and yo in letkf solver */
 
     // set X
@@ -91,9 +103,18 @@ private:
     auto xk = xk_.mdspan();
     auto xk_buffer = xk_buffer_.mdspan();
     auto X = letkf_solver_->X().mdspan();
+
+    timers[DA_Set_Matrix]->begin();
     Impl::transpose(f, xk, {2, 0, 1}); // (nx, ny, Q) -> (Q, nx*ny)
+    timers[DA_Set_Matrix]->end();
+
+    timers[DA_All2All]->begin();
     all2all(xk, xk_buffer); // xk(n_stt, n_batch, n_ens) -> xk_buffer(n_stt, n_batch, n_ens)
+    timers[DA_All2All]->end();
+
+    timers[DA_Set_Matrix]->begin();
     Impl::transpose(xk_buffer, X, {0, 2, 1});
+    timers[DA_Set_Matrix]->end();
 
     // set Y
     auto yk = yk_.mdspan();
@@ -108,24 +129,37 @@ private:
     const int y_offset0 = 0;
     auto _yk = Impl::reshape(yk, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny}));
     Iterate_policy<4> yk_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny});
+    timers[DA_Set_Matrix]->begin();
     Impl::for_each(yk_pack_policy4d, pack_y_functor(conf_, y_offset0, rho, u, v, _yk));
+    timers[DA_Set_Matrix]->end();
+
+    timers[DA_All2All]->begin();
     all2all(yk, yk_buffer); // yk(n_obs, n_batch, n_ens) -> yk_buffer(n_obs, n_batch, n_ens)
+    timers[DA_All2All]->end();
+
+    timers[DA_Set_Matrix]->begin();
     Impl::transpose(yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
+    timers[DA_Set_Matrix]->end();
 
     // set yo
     auto rho_obs = data_vars->rho_obs().mdspan();
     auto u_obs   = data_vars->u_obs().mdspan();
     auto v_obs   = data_vars->v_obs().mdspan();
     auto y_obs   = letkf_solver_->y_obs().mdspan();
+    timers[DA_Broadcast]->begin();
     broadcast(rho_obs);
     broadcast(u_obs);
     broadcast(v_obs);
+    timers[DA_Broadcast]->end();
 
     const int ny_local = ny/mpi_conf_.size();
     const int y_offset = ny_local * mpi_conf_.rank();
     auto _y_obs = Impl::reshape(y_obs, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny_local}));
     Iterate_policy<4> yo_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny_local});
+
+    timers[DA_Set_Matrix]->begin();
     Impl::for_each(yo_pack_policy4d, pack_y_functor(conf_, y_offset, rho_obs, u_obs, v_obs, _y_obs));
+    timers[DA_Set_Matrix]->end();
   }
 
   void update(std::unique_ptr<DataVars>& data_vars) {

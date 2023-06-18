@@ -21,6 +21,7 @@
 
 class LBM2D : public Model {
 private:
+  using value_type = RealView2D::value_type;
   bool is_master_ = true;
   bool is_reference_ = true;
 
@@ -30,7 +31,7 @@ private:
   RealView2D noise_;
 
   // Observation
-  Impl::Random<double> rand_;
+  Impl::Random<value_type> rand_;
 
   // Force term
   std::unique_ptr<Force> force_;
@@ -48,11 +49,11 @@ public:
   void initialize(std::unique_ptr<DataVars>& data_vars) {
     // tmp val for stream function
     auto [nx, ny] = conf_.settings_.n_;
-    double p_amp = conf_.phys_.p_amp_;
+    value_type p_amp = static_cast<value_type>(conf_.phys_.p_amp_);
     int nkx = nx/2;
-    double k0 = conf_.phys_.kf_;
-    double dk = conf_.phys_.dk_;
-    double sigma = conf_.phys_.sigma_;
+    value_type k0 = static_cast<value_type>(conf_.phys_.kf_);
+    value_type dk = static_cast<value_type>(conf_.phys_.dk_);
+    value_type sigma = static_cast<value_type>(conf_.phys_.sigma_);
     int ensemble_id = conf_.settings_.ensemble_idx_;
     is_master_ = (ensemble_id == 0);
     is_reference_ = conf_.settings_.is_reference_;
@@ -61,8 +62,8 @@ public:
     }
 
     // Allocate data
-    vor_ = RealView2D("vor", nx, ny);
-    nu_  = RealView2D("nu", nx, ny);
+    vor_     = RealView2D("vor", nx, ny);
+    nu_      = RealView2D("nu", nx, ny);
     vor_obs_ = RealView2D("vor_obs", nx, ny);
     noise_   = RealView2D("noise", nx, ny);
 
@@ -71,11 +72,11 @@ public:
 
     // init val (mainly on host)
     auto rand_engine = std::mt19937(ensemble_id);
-    auto rand_dist = std::uniform_real_distribution<double>(-1, 1);
+    auto rand_dist = std::uniform_real_distribution<value_type>(-1, 1);
     auto rand = [&]() { return rand_dist(rand_engine); };
     for(int iky=0; iky<nkx; iky++) {
       for(int ikx=0; ikx<nkx; ikx++) {
-        const double k = std::sqrt(static_cast<double>(ikx*ikx + iky*iky));
+        const value_type k = std::sqrt(static_cast<value_type>(ikx*ikx + iky*iky));
         const auto pk = (k0-dk <= k and k <= k0+dk)
           ? std::exp( - (k-k0)*(k-k0) / sigma ) 
           : 0; // forced maltrud91
@@ -92,17 +93,17 @@ public:
     auto v   = data_vars->v().mdspan();
     const auto _p  = p.mdspan();
     const auto _theta = theta.mdspan();
-    double rho_ref = conf_.phys_.rho_ref_;
+    value_type rho_ref = static_cast<value_type>(conf_.phys_.rho_ref_);
 
     auto init_fluid_moments = [=](const int ix, const int iy) {
       // fluid
-      double u_tmp = 0;
-      double v_tmp = 0;
+      value_type u_tmp = 0.0;
+      value_type v_tmp = 0.0;
       for(int iky=0; iky<nkx; iky++) {
-        const double ky = 2 * M_PI * iky / ny;
+        const value_type ky = 2 * M_PI * iky / ny;
         for(int ikx=0; ikx<nkx; ikx++) {
-          const double kx = 2 * M_PI * ikx / nx;
-          const auto p_tmp = _p(ikx, iky);
+          const value_type kx = 2 * M_PI * ikx / nx;
+          const auto p_tmp     = _p(ikx, iky);
           const auto theta_tmp = _theta(ikx, iky);
           u_tmp += p_tmp * ky    * cos(kx * ix + ky * iy + theta_tmp);
           v_tmp += p_tmp * (-kx) * cos(kx * ix + ky * iy + theta_tmp);
@@ -116,8 +117,8 @@ public:
     Impl::for_each(policy2d, init_fluid_moments);
 
     // Modify u, v by max. vs cfl
-    double u_ref = conf_.phys_.u_ref_;
-    double vmax = 1e-30 * u_ref;
+    value_type u_ref = static_cast<value_type>(conf_.phys_.u_ref_);
+    value_type vmax  = 1e-30 * u_ref;
     auto max_speed = [=](const int ix, const int iy) {
       auto _u = u(ix, iy);
       auto _v = v(ix, iy);
@@ -228,22 +229,26 @@ private:
   void purturbulate(std::unique_ptr<DataVars>& data_vars) {
     auto [nx, ny] = conf_.settings_.n_;
     const auto Q = conf_.phys_.Q_;
-    const auto epsilon = conf_.settings_.ly_epsilon_;
+    const value_type epsilon = static_cast<value_type>(conf_.settings_.ly_epsilon_);
     const int ensemble_idx = conf_.settings_.ensemble_idx_ + 132333;
 
-    std::mt19937 engine(ensemble_idx);
-    std::normal_distribution<double> dist(0, 1);
+    auto rand_engine = std::mt19937(ensemble_idx);
+    auto rand_dist = std::normal_distribution<value_type>(0, 1);
+    auto rand = [&]() { return rand_dist(rand_engine); };
 
     // f with purturbulation
     //     purturbulation using the context of newtonian nudging
-    auto _f = data_vars->f(); // Access via Views
+    auto _f   = data_vars->f(); // Access via Views
     auto _rho = data_vars->rho();
+    value_type c = static_cast<value_type>(conf_.settings_.c_);
 
-    auto feq = [=, this](double rho, double u, double v, int q) {
-      auto c = conf_.settings_.c_;
-      auto uu = (u*u + v*v) / (c*c);
-      auto uc = (u * conf_.phys_.q_[0][q] + v * conf_.phys_.q_[1][q]) / c;
-      return conf_.phys_.weights_[q] * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
+    auto feq = [=, this](value_type rho, value_type u, value_type v, int q) {
+      value_type weight = static_cast<value_type>(conf_.phys_.weights_[q]);
+      value_type qx = static_cast<value_type>(conf_.phys_.q_[0][q]);
+      value_type qy = static_cast<value_type>(conf_.phys_.q_[1][q]);
+      value_type uu = (u*u + v*v) / (c*c);
+      value_type uc = (u*qx + v*qy) / c;
+      return weight * rho * (1.0 + 3.0 * uc + 4.5 * uc * uc - 1.5 * uu);
     };
 
     _f.updateSelf();
@@ -251,12 +256,12 @@ private:
     for(int iy=0; iy<ny; iy++) {
       for(int ix=0; ix<nx; ix++) {
         const auto rho_tmp = _rho(ix, iy);
-        const auto u_tmp = conf_.phys_.u_ref_ * dist(engine);
-        const auto v_tmp = conf_.phys_.u_ref_ * dist(engine);
+        const value_type u_tmp = static_cast<value_type>(conf_.phys_.u_ref_) * rand();
+        const value_type v_tmp = static_cast<value_type>(conf_.phys_.u_ref_) * rand();
 
         for(int q=0; q<Q; q++) {
           const auto fo = feq(rho_tmp, u_tmp, v_tmp, q);
-          _f(ix, iy, q) = epsilon * fo + (1-epsilon) * _f(ix, iy, q);
+          _f(ix, iy, q) = epsilon * fo + (1.0-epsilon) * _f(ix, iy, q);
         }
       }
     }
@@ -330,8 +335,8 @@ private:
 private:
   void inspect(std::unique_ptr<DataVars>& data_vars) {
     auto [nx, ny] = conf_.settings_.n_;
-    auto dx = conf_.settings_.dx_;
-    auto u_ref = conf_.phys_.u_ref_;
+    value_type dx    = static_cast<value_type>(conf_.settings_.dx_);
+    value_type u_ref = static_cast<value_type>(conf_.phys_.u_ref_);
 
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
@@ -347,11 +352,11 @@ private:
         auto tmp_u   = u(ix, iy);
         auto tmp_v   = v(ix, iy);
 
-        auto momentum_x = tmp_rho * tmp_u;
-        auto momentum_y = tmp_rho * tmp_v;
-        auto energy     = tmp_u * tmp_u + tmp_v * tmp_v;
-        auto nus        = nu(ix, iy);
-        auto mass       = tmp_rho;
+        double momentum_x = tmp_rho * tmp_u;
+        double momentum_y = tmp_rho * tmp_v;
+        double energy     = tmp_u * tmp_u + tmp_v * tmp_v;
+        double nus        = nu(ix, iy);
+        double mass       = tmp_rho;
 
         // derivatives
         const auto ixp1 = periodic(ix+1, nx);
@@ -364,10 +369,10 @@ private:
         const auto vx = (v(ixp1, iy) - v(ixm1, iy)) / (2*dx);
         const auto vy = (v(ix, iyp1) - v(ix, iym1)) / (2*dx);
 
-        const auto enstrophy = ( (vx - uy) * (vx - uy) + (ux + vy) * (ux + vy) ) / 2;
-        const auto divu = ux + vy;
-        const auto divu2 = (ux + vy) * (ux + vy);
-        const auto vel2 = tmp_u * tmp_u + tmp_v * tmp_v;
+        const double enstrophy = ( (vx - uy) * (vx - uy) + (ux + vy) * (ux + vy) ) / 2;
+        const double divu = ux + vy;
+        const double divu2 = (ux + vy) * (ux + vy);
+        const double vel2 = tmp_u * tmp_u + tmp_v * tmp_v;
 
         return moment_type {momentum_x, momentum_y, energy, enstrophy, nus, mass, divu2, divu, vel2};
     };
@@ -439,10 +444,10 @@ private:
     */
 
     // To be removed
-    double maxdivu = 0;
-    double maxvel2 = 0;
-    double rho_max = 0;
-    double rho_min = 9999;
+    value_type maxdivu = 0;
+    value_type maxvel2 = 0;
+    value_type rho_max = 0;
+    value_type rho_min = 9999;
 
     for(int iy=0; iy<ny; iy++) {
       for(int ix=0; ix<nx; ix++) {
@@ -456,10 +461,10 @@ private:
         const int iyp1 = periodic(iy+1, ny);
         const int iym1 = periodic(iy-1, ny);
 
-        const auto ux = (u(ixp1, iy) - u(ixm1, iy)) / (2*dx);
-        const auto uy = (u(ix, iyp1) - u(ix, iym1)) / (2*dx);
-        const auto vx = (v(ixp1, iy) - v(ixm1, iy)) / (2*dx);
-        const auto vy = (v(ix, iyp1) - v(ix, iym1)) / (2*dx);
+        const value_type ux = (u(ixp1, iy) - u(ixm1, iy)) / (2*dx);
+        const value_type uy = (u(ix, iyp1) - u(ix, iym1)) / (2*dx);
+        const value_type vx = (v(ixp1, iy) - v(ixm1, iy)) / (2*dx);
+        const value_type vy = (v(ix, iyp1) - v(ix, iym1)) / (2*dx);
 
         maxdivu = std::max(maxdivu, std::abs(ux + vy));
         maxvel2 = std::max(maxvel2, tmp_u * tmp_u + tmp_v * tmp_v);
@@ -503,13 +508,13 @@ private:
   }
 
   template <class ViewType>
-  void add_noise(const ViewType& value, ViewType& noisy_value, const double error=0.0) {
+  void add_noise(const ViewType& value, ViewType& noisy_value, const value_type error=0.0) {
     auto [nx, ny] = conf_.settings_.n_;
     const auto value_tmp = value.mdspan();
     auto noisy_value_tmp = noisy_value.mdspan();
     const auto noise_tmp = noise_.mdspan();
 
-    const double mean = 0.0, stddev = 1.0;
+    const value_type mean = 0.0, stddev = 1.0;
     rand_.normal(noise_.data(), nx*ny, mean, stddev);
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});

@@ -62,6 +62,7 @@ public:
     if(conf_.settings_.lyapnov_) {
       model_->reset(data_vars_, "purturbulate");
     }
+    mpi_conf_.fence();
   };
 
   void run(){
@@ -70,7 +71,7 @@ public:
       timers_[TimerEnum::MainLoop]->begin();
 
       timers_[TimerEnum::DA]->begin();
-      da_model_->apply(data_vars_, it);
+      da_model_->apply(data_vars_, it, timers_);
       timers_[TimerEnum::DA]->end();
 
       timers_[TimerEnum::Diag]->begin();
@@ -87,6 +88,7 @@ public:
   }
 
   void finalize(){
+    mpi_conf_.fence();
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
       freeTimers(timers_);
@@ -184,8 +186,15 @@ private:
     auto h_ref = conf_.phys_.h_ref_;
     auto io_interval = conf_.settings_.io_interval_;
 
+    #if defined(USE_SINGLE_PRECISION)
+      std::string precision = "float32";
+    #else
+      std::string precision = "float64";
+    #endif
+
     if(mpi_conf_.is_master()) {
       std::cout
+          << "  precision = " << precision << std::endl
           << "  sim_type = " << sim_type_ << std::endl
           << "  nx = " << nx << std::endl
           << "  nu = " << nu << " m2/s" << std::endl
