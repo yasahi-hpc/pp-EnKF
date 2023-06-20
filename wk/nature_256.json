@@ -15,9 +15,9 @@
     "Settings": {
         "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
         "sim_type": "nature",
-        "case_name": "nature",
-        "nx": 512,
-        "ny": 512,
+        "case_name": "nature256",
+        "nx": 256,
+        "ny": 256,
         "spinup": 10000,
         "nbiter": 10000,
         "io_interval": 20,

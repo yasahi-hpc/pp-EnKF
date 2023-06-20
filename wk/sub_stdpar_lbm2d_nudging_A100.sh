@@ -26,8 +26,8 @@ then
     cd ../
     rm -rf build
     mkdir build && cd build
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DUSE_SINGLE_PRECISION=ON ..
-    #cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
+    #cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DUSE_SINGLE_PRECISION=ON ..
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
     cmake --build . -j 8
     cd ../wk/
 fi
@@ -37,7 +37,11 @@ export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature_256.json
+#mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
+#    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
 
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nudging.json 
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nudging_256.json 
+#mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
+#    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nudging.json 

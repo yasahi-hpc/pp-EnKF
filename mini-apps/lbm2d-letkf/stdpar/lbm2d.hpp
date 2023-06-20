@@ -163,10 +163,6 @@ public:
   }
 
   void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) {
-    // Always reset counts
-    it_ = 0;
-    diag_it_ = 0;
-
     if(mode == "purturbulate") {
       purturbulate(data_vars);
     }
@@ -188,11 +184,9 @@ public:
     auto& f  = data_vars->f();
     auto& fn = data_vars->fn();
     fn.swap(f);
-
-    it_++;
   }
 
-  void diag(std::unique_ptr<DataVars>& data_vars){
+  void diag(std::unique_ptr<DataVars>& data_vars, const int it){
     /* 
      * 0. Nature run or perturbed run (as reference)
      *    Save rho, u, v and vor into /nature (as is) and /observed (with noise)
@@ -201,8 +195,8 @@ public:
      *    Save rho, u, v and vor into /calc (as is)
      *
      * */
-    if(it_ % conf_.settings_.io_interval_ != 0) return;
-    if(is_master_) inspect(data_vars);
+    if(it % conf_.settings_.io_interval_ != 0) return;
+    if(is_master_) inspect(data_vars, it);
 
     // Save values calculated by this ensemble member
     // Save simulation results without noises
@@ -210,7 +204,7 @@ public:
     auto rho = data_vars->rho();
     auto u = data_vars->u();
     auto v = data_vars->v();
-    save_to_files(sim_result_name, rho, u, v, it_);
+    save_to_files(sim_result_name, rho, u, v, it);
 
     // Save noisy results
     if(is_reference_) {
@@ -218,7 +212,7 @@ public:
       auto rho_obs = data_vars->rho_obs();
       auto u_obs = data_vars->u_obs();
       auto v_obs = data_vars->v_obs();
-      save_to_files("observed", rho_obs, u_obs, v_obs, it_);
+      save_to_files("observed", rho_obs, u_obs, v_obs, it);
     }
   }
 
@@ -333,7 +327,7 @@ private:
   }
 
 private:
-  void inspect(std::unique_ptr<DataVars>& data_vars) {
+  void inspect(std::unique_ptr<DataVars>& data_vars, const int it) {
     auto [nx, ny] = conf_.settings_.n_;
     value_type dx    = static_cast<value_type>(conf_.settings_.dx_);
     value_type u_ref = static_cast<value_type>(conf_.phys_.u_ref_);
@@ -483,6 +477,7 @@ private:
     auto vel2             = std::get<8>(moments) / (nx * ny);
 
     std::cout << std::scientific << std::setprecision(16) << std::flush;
+    std::cout << " it/nbiter: " << it << "/" << conf_.settings_.nbiter_ << std::endl;
     std::cout << " RMS, max speed: " << std::sqrt(vel2) << ", " << std::sqrt(maxvel2) << " [m/s]" << std::endl;
     //std::cout << " mean energy: " << energy << " [m2/s2]" << std::endl;
     //std::cout << " mean enstrophy: " << enstrophy << " [/s2]" << std::endl;
@@ -553,7 +548,7 @@ private:
     value.updateSelf();
 
     std::string file_name = dir_name + "/" + value.name() + "_step"
-                          + Impl::zfill(it / conf_.settings_.io_interval_, 10) + ".dat";
+                          + Impl::zfill(it, 10) + ".dat";
     Impl::to_binary(file_name, value.mdspan());
   }
 };

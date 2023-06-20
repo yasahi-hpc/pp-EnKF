@@ -75,7 +75,7 @@ public:
       timers_[TimerEnum::DA]->end();
 
       timers_[TimerEnum::Diag]->begin();
-      model_->diag(data_vars_);
+      model_->diag(data_vars_, it);
       timers_[TimerEnum::Diag]->end();
 
       timers_[TimerEnum::LBMSolver]->begin();
@@ -152,6 +152,11 @@ private:
     io_conf_.case_name_    = json_data["Settings"]["case_name"].get<std::string>();
     if(json_data["Settings"].contains("in_case_name")) {
       io_conf_.in_case_name_ = json_data["Settings"]["in_case_name"].get<std::string>();
+    }
+
+    // da_interval should be divisible by io_interval.
+    if(conf_.settings_.da_interval_ % conf_.settings_.io_interval_ == 0) {
+      std::runtime_error("da_interval must be divisible by io_interval.");
     }
 
     // Saving json file to output directory
