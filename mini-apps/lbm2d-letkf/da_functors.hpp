@@ -30,14 +30,14 @@ public:
 
   MDSPAN_FORCE_INLINE_FUNCTION
   void operator()(const int ix, const int iy) const {
-    auto rho_tmp = maybeLinearInterp2D(rho_, ix, iy);
-    auto u_tmp   = maybeLinearInterp2D(u_, ix, iy);
-    auto v_tmp   = maybeLinearInterp2D(v_, ix, iy);
+    value_type rho_tmp = maybeLinearInterp2D(rho_, ix, iy);
+    value_type u_tmp   = maybeLinearInterp2D(u_, ix, iy);
+    value_type v_tmp   = maybeLinearInterp2D(v_, ix, iy);
 
     for(int q=0; q<Q_; q++) {
-      const auto f_calc = f_(ix, iy, q);
-      const auto f_obs  = feq(rho_tmp, u_tmp, v_tmp, q); 
-      f_(ix, iy, q) = alpha_ * f_obs + (1-alpha_) * f_calc;
+      const value_type f_calc = f_(ix, iy, q);
+      const value_type f_obs  = feq(rho_tmp, u_tmp, v_tmp, q);
+      f_(ix, iy, q) = alpha_ * f_obs + (1.0 - alpha_) * f_calc;
     }
   }
 
