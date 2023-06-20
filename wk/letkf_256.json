@@ -14,10 +14,11 @@
     },
     "Settings": {
         "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
-        "sim_type": "nature",
-        "case_name": "nature",
-        "nx": 512,
-        "ny": 512,
+        "sim_type": "letkf",
+        "case_name": "letkf256",
+        "in_case_name": "nature256",
+        "nx": 256,
+        "ny": 256,
         "spinup": 10000,
         "nbiter": 10000,
         "io_interval": 20,
@@ -25,6 +26,8 @@
         "obs_interval": 1,
         "lyapnov": false,
         "les": true,
-        "da_nud_rate": 0.1
+        "da_nud_rate": 0.1,
+        "beta": 1.0,
+        "rloc_len": 1
     }
 }
