@@ -28,9 +28,10 @@ namespace Impl {
     using layout_type = InputView::layout_type;
     using axes_type = std::array<int, 3>;
 
-    for(std::size_t i=0; i<axes.size(); i++) {
-      assert(out.extent(i) == in.extent(axes[i]));
-    }
+    assert(out.size() == in.size());
+    //for(std::size_t i=0; i<axes.size(); i++) {
+    //  assert(out.extent(i) == in.extent(axes[i]));
+    //}
 
     const auto n0 = in.extent(0), n1 = in.extent(1), n2 = in.extent(2);
     // Not quite sure, this is a better strategy
@@ -38,13 +39,22 @@ namespace Impl {
 
     if(axes == axes_type({0, 1, 2}) ) {
       const auto n = in.size();
+      for(std::size_t i=0; i<axes.size(); i++) {
+        assert(out.extent(i) == in.extent(axes[i]));
+      }
       std::copy(std::execution::par_unseq, in.data_handle(), in.data_handle()+n, out.data_handle());
     } else if(axes == axes_type({0, 2, 1}) ) {
+      for(std::size_t i=0; i<axes.size(); i++) {
+        assert(out.extent(i) == in.extent(axes[i]));
+      }
       Impl::for_each(policy3d,
         [=](const int i0, const int i1, const int i2) {
           out(i0, i2, i1) = in(i0, i1, i2);
       });
     } else if(axes == axes_type({1, 0, 2})) {
+      for(std::size_t i=0; i<axes.size(); i++) {
+        assert(out.extent(i) == in.extent(axes[i]));
+      }
       Impl::for_each(policy3d,
         [=](const int i0, const int i1, const int i2) {
           out(i1, i0, i2) = in(i0, i1, i2);
@@ -68,6 +78,9 @@ namespace Impl {
       mdspan2d_type sub_out(out.data_handle(), out_shape);
       transpose(sub_in, sub_out);
     } else if(axes == axes_type({2, 1, 0})) {
+      for(std::size_t i=0; i<axes.size(); i++) {
+        assert(out.extent(i) == in.extent(axes[i]));
+      }
       Impl::for_each(policy3d,
         [=](const int i0, const int i1, const int i2) {
           out(i2, i1, i0) = in(i0, i1, i2);

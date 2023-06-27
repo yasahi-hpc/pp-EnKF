@@ -373,8 +373,8 @@ namespace Impl {
   
     thrust::device_vector<value_type> workspace(lwork);
     thrust::device_vector<int> info(batchSize, 0);
-    auto workspace_data = (value_type *)thrust::raw_pointer_cast(workspace.data());
-    auto info_data = (int *)thrust::raw_pointer_cast(info.data());
+    value_type* workspace_data = (value_type *)thrust::raw_pointer_cast(workspace.data());
+    int* info_data = (int *)thrust::raw_pointer_cast(info.data());
   
     auto status = syevjBatched(
                    handle,

@@ -36,12 +36,12 @@ export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
-#mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-#    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature_256.json
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
+    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature_256.json
+#mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
+#    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature.json
 
-#mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-#    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf_256.json
 mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf.json
+    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf_256.json
+#mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
+#    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf.json

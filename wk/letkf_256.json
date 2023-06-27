@@ -19,15 +19,15 @@
         "in_case_name": "nature256",
         "nx": 256,
         "ny": 256,
-        "spinup": 10000,
-        "nbiter": 10000,
-        "io_interval": 20,
-        "da_interval": 20,
+        "spinup": 200000,
+        "nbiter": 40000,
+        "io_interval": 200,
+        "da_interval": 200,
         "obs_interval": 1,
         "lyapnov": false,
         "les": true,
         "da_nud_rate": 0.1,
-        "beta": 1.0,
+        "beta": 1.07,
         "rloc_len": 1
     }
 }

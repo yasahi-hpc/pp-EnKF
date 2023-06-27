@@ -127,7 +127,7 @@ public:
     const value_type alpha = sqrt(static_cast<int>(n_ens_) - 1);
     Impl::diag(d, inv_D, -0.5); // (n_ens, n_ens, n_batch)
     Impl::matrix_matrix_product(inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(V, tmp_ee, W, "N", "T", alpha); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(V, tmp_ee, W, "N", "N", alpha); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
 
     // W = W + w
     // Xsol = x_mean + matmat(dX, W)
