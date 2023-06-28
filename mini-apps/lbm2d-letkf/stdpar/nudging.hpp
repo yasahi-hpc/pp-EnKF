@@ -15,11 +15,10 @@ public:
   }
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
-    if(it == 0) return;
-    if(it % conf_.settings_.da_interval_ != 0) {
-      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
-      return;
-    };
+    if(it == 0 || it % conf_.settings_.da_interval_ != 0) return;
+    std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;
+
+    timers[TimerEnum::DA]->begin();
     timers[DA_Load]->begin();
     load(data_vars, it); // loading rho_obs, u_obs, v_obs
     timers[DA_Load]->end();
@@ -35,6 +34,8 @@ public:
     timers[DA_Update]->begin();
     Impl::for_each(policy2d, nudging_functor(conf_, rho_obs, u_obs, v_obs, f));
     timers[DA_Update]->end();
+
+    timers[TimerEnum::DA]->end();
   }
   void diag(){}
   void finalize(){}

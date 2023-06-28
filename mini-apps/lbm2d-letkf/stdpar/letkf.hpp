@@ -69,12 +69,12 @@ public:
   }
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
-    if(it == 0) return;
-    if(it % conf_.settings_.da_interval_ != 0) {
-      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << ": skip" << std::endl;
-      return;
-    };
+    if(it == 0 || it % conf_.settings_.da_interval_ != 0) return;
+
+    timers[TimerEnum::DA]->begin();
     if(mpi_conf_.is_master()) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;
+
       timers[DA_Load]->begin();
       load(data_vars, it);
       timers[DA_Load]->end();
@@ -88,6 +88,7 @@ public:
     timers[DA_Update]->begin();
     update(data_vars);
     timers[DA_Update]->end();
+    timers[TimerEnum::DA]->end();
   }
 
   void diag(){}

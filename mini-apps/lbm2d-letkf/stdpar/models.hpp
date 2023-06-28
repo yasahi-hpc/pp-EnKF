@@ -4,6 +4,7 @@
 #include <string>
 #include "../config.hpp"
 #include "../io_config.hpp"
+#include "../timer.hpp"
 #include "data_vars.hpp"
 
 class Model {
@@ -18,7 +19,7 @@ public:
   virtual void initialize(std::unique_ptr<DataVars>& data_vars)=0;
   virtual void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode)=0;
   virtual void solve(std::unique_ptr<DataVars>& data_vars)=0;
-  virtual void diag(std::unique_ptr<DataVars>& data_vars, const int it)=0;
+  virtual void diag(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers)=0;
   virtual void finalize()=0;
 };
 

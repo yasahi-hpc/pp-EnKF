@@ -186,7 +186,7 @@ public:
     fn.swap(f);
   }
 
-  void diag(std::unique_ptr<DataVars>& data_vars, const int it){
+  void diag(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     /* 
      * 0. Nature run or perturbed run (as reference)
      *    Save rho, u, v and vor into /nature (as is) and /observed (with noise)
@@ -196,6 +196,8 @@ public:
      *
      * */
     if(it % conf_.settings_.io_interval_ != 0) return;
+
+    timers[TimerEnum::Diag]->begin();
     if(is_master_) inspect(data_vars, it);
 
     // Save values calculated by this ensemble member
@@ -214,6 +216,7 @@ public:
       auto v_obs = data_vars->v_obs();
       save_to_files("observed", rho_obs, u_obs, v_obs, it);
     }
+    timers[TimerEnum::Diag]->end();
   }
 
   void finalize() {}
