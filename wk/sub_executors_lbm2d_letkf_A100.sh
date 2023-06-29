@@ -36,7 +36,7 @@ export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nature.json
+    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nature_256.json
 
-mpiexec -machinefile $PJM_O_NODEINF -np 4 -npernode 4 \
-    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename letkf.json
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
+    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename letkf_256.json
