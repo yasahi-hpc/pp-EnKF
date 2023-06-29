@@ -147,18 +147,18 @@ private:
     x_mean_ = RealView3D("x_mean", n_stt_, 1, n_batch_);
     y_mean_ = RealView3D("y_mean", n_obs_, 1, n_batch_);
 
-    yo_  = RealView3D("yo", n_obs_, 1, n_batch_);
+    yo_ = RealView3D("yo", n_obs_, 1, n_batch_);
 
-    I_ = RealView3D("I", n_ens_, n_ens_, n_batch_);
-    Q_ = RealView3D("Q", n_ens_, n_ens_, n_batch_);
-    V_ = RealView3D("V", n_ens_, n_ens_, n_batch_);
-    d_ = RealView2D("d", n_ens_, n_batch_);
+    I_     = RealView3D("I", n_ens_, n_ens_, n_batch_);
+    Q_     = RealView3D("Q", n_ens_, n_ens_, n_batch_);
+    V_     = RealView3D("V", n_ens_, n_ens_, n_batch_);
+    d_     = RealView2D("d", n_ens_, n_batch_);
     inv_D_ = RealView3D("inv_D", n_ens_, n_ens_, n_batch_);
-    P_ = RealView3D("P", n_ens_, n_ens_, n_batch_);
+    P_     = RealView3D("P", n_ens_, n_ens_, n_batch_);
 
     rR_ = RealView3D("rR", n_obs_, n_obs_, n_batch_);
-    w_ = RealView3D("w", n_ens_, 1, n_batch_);
-    W_ = RealView3D("W", n_ens_, n_ens_, n_batch_);
+    w_  = RealView3D("w", n_ens_, 1, n_batch_);
+    W_  = RealView3D("W", n_ens_, n_ens_, n_batch_);
 
     tmp_ee_ = RealView3D("tmp_ee", n_ens_, n_ens_, n_batch_);
     tmp_oe_ = RealView3D("tmp_oe", n_obs_, n_ens_, n_batch_);

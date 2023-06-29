@@ -15,10 +15,10 @@ private:
   // Communicator
   MPI_Comm communicator_;
 
-  bool is_initialized;
+  bool is_initialized_;
 
 public:
-  MPIConfig() : is_initialized(false) {}
+  MPIConfig() : is_initialized_(false) {}
   ~MPIConfig() {}
 
 public:
@@ -32,7 +32,7 @@ public:
     ::MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   }
 
-  void finalize() { if(is_initialized) ::MPI_Finalize(); }
+  void finalize() { if(is_initialized_) ::MPI_Finalize(); }
   bool is_master() { return rank_==0; }
   int size() const { return size_; }
   int rank() const { return rank_; }
