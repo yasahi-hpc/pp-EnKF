@@ -1,0 +1,34 @@
+{
+    "Physics": {
+        "rho_ref": 1.0,
+        "u_ref": 1.0,
+        "nu": 1.0e-4,
+        "friction_rate": 5.0e-4,
+        "kf": 4.0,
+        "fkf": 5.6,
+        "dk": 10,
+        "sigma": 5,
+        "p_amp": 0.01,
+        "obs_error_rho": 0.01,
+        "obs_error_u": 0.1
+    },
+    "Settings": {
+        "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
+        "sim_type": "letkf",
+        "case_name": "letkf256",
+        "in_case_name": "nature256",
+        "nx": 256,
+        "ny": 256,
+        "spinup": 200000,
+        "nbiter": 40000,
+        "io_interval": 200,
+        "da_interval": 200,
+        "obs_interval": 1,
+        "lyapnov": false,
+        "les": true,
+        "is_async": true,
+        "da_nud_rate": 0.1,
+        "beta": 1.07,
+        "rloc_len": 1
+    }
+}
