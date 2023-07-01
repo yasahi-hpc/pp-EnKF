@@ -17,8 +17,8 @@ namespace stdex = std::experimental;
   template <typename RealType> using Complex = thrust::complex<RealType>;
 #else
   #include <complex>
-  using default_layout = stdex::layout_right;
-  using default_iterate_layout = stdex::layout_right;
+  using default_layout = stdex::layout_left;
+  using default_iterate_layout = stdex::layout_left;
   template <typename RealType> using Complex = std::complex<RealType>;
   #define SIMD_WIDTH 8
   #include<omp.h>
@@ -35,7 +35,11 @@ using complex64 = Complex<float32>;
 using complex128 = Complex<float64>;
 using size_type = std::size_t;
 
-using Real = float64;
+#if defined(USE_SINGLE_PRECISION)
+  using Real = float32;
+#else
+  using Real = float64;
+#endif
 
 template <size_type N>
 using shape_type = std::array<size_type, N>;

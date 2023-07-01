@@ -21,6 +21,7 @@
 
 class LBM2D : public Model {
 private:
+  using value_type = RealView2D::value_type;
   bool is_master_ = true;
   bool is_reference_ = true;
 
@@ -30,7 +31,7 @@ private:
   RealView2D noise_;
 
   // Observation
-  Impl::Random<double> rand_;
+  Impl::Random<value_type> rand_;
 
   // Force term
   std::unique_ptr<Force> force_;
@@ -143,7 +144,6 @@ public:
     // Initialize force term
     force_ = std::move( std::unique_ptr<Force>(new Force(conf_)) );
 
-
     // Initialize IO
     const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
 
@@ -163,10 +163,6 @@ public:
   }
 
   void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) {
-    // Always reset counts
-    it_ = 0;
-    diag_it_ = 0;
-
     if(mode == "purturbulate") {
       purturbulate(data_vars);
     }
@@ -188,11 +184,9 @@ public:
     auto& f  = data_vars->f();
     auto& fn = data_vars->fn();
     fn.swap(f);
-
-    it_++;
   }
 
-  void diag(std::unique_ptr<DataVars>& data_vars){
+  void diag(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     /* 
      * 0. Nature run or perturbed run (as reference)
      *    Save rho, u, v and vor into /nature (as is) and /observed (with noise)
@@ -201,16 +195,17 @@ public:
      *    Save rho, u, v and vor into /calc (as is)
      *
      * */
-    if(it_ % conf_.settings_.io_interval_ != 0) return;
-    if(is_master_) inspect(data_vars);
+    if(it % conf_.settings_.io_interval_ != 0) return;
+
+    timers[TimerEnum::Diag]->begin();
+    if(is_master_) inspect(data_vars, it);
 
     // Save values calculated by this ensemble member
     // Save simulation results without noises
-    std::string sim_result_name = "calc";
     auto rho = data_vars->rho();
     auto u = data_vars->u();
     auto v = data_vars->v();
-    save_to_files(sim_result_name, rho, u, v, it_);
+    save_to_files("calc", rho, u, v, it);
 
     // Save noisy results
     if(is_reference_) {
@@ -218,8 +213,9 @@ public:
       auto rho_obs = data_vars->rho_obs();
       auto u_obs = data_vars->u_obs();
       auto v_obs = data_vars->v_obs();
-      save_to_files("observed", rho_obs, u_obs, v_obs, it_);
+      save_to_files("observed", rho_obs, u_obs, v_obs, it);
     }
+    timers[TimerEnum::Diag]->end();
   }
 
   void finalize() {}
@@ -329,15 +325,11 @@ private:
   }
 
 private:
-  void inspect(std::unique_ptr<DataVars>& data_vars) {
+  void inspect(std::unique_ptr<DataVars>& data_vars, const int it) {
     auto [nx, ny] = conf_.settings_.n_;
     auto dx = conf_.settings_.dx_;
     auto u_ref = conf_.phys_.u_ref_;
 
-    data_vars->rho().updateSelf();
-    data_vars->u().updateSelf();
-    data_vars->v().updateSelf();
-    nu_.updateSelf();
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
     auto v   = data_vars->v().mdspan();
@@ -347,7 +339,7 @@ private:
     moment_type moments = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     auto moment_kernel = 
-      [=](const int ix, const int iy) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
         auto tmp_rho = rho(ix, iy);
         auto tmp_u   = u(ix, iy);
         auto tmp_v   = v(ix, iy);
@@ -378,7 +370,7 @@ private:
     };
 
     auto sum_operator =
-      [=] (const moment_type& left, const moment_type& right) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const moment_type& left, const moment_type& right) {
         return moment_type {std::get<0>(left) + std::get<0>(right),
                             std::get<1>(left) + std::get<1>(right),
                             std::get<2>(left) + std::get<2>(right),
@@ -394,12 +386,11 @@ private:
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
     Impl::transform_reduce(policy2d, sum_operator, moment_kernel, moments);
 
-    /* [FIX THIS] transform reduce to get multiple max elements does not work correctly???
-    using maximum_type = std::tuple<double, double, double>;
-    maximum_type maximums = {0, 0, 0};
+    using minmax_type = std::tuple<double, double, double, double>;
+    minmax_type minmaxs = {0, 0, 0, 10000};
     // Compute maximum
-    auto maximum_kernel = 
-      [=](const int ix, const int iy) {
+    auto minmax_kernel =
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
         auto tmp_rho = rho(ix, iy);
         auto tmp_u   = u(ix, iy);
         auto tmp_v   = v(ix, iy);
@@ -418,67 +409,24 @@ private:
         auto maxdivu = std::abs(ux + vy);
         auto maxvel2 = tmp_u * tmp_u + tmp_v * tmp_v;
 
-        return maximum_type {maxdivu, maxvel2, tmp_rho};
+        return minmax_type {maxdivu, maxvel2, tmp_rho, tmp_rho};
     };
 
-    auto max_operator =
-      [=] (const maximum_type& left, const maximum_type& right) {
-        return maximum_type {std::max( std::get<0>(left), std::get<0>(right) ),
-                             std::max( std::get<1>(left), std::get<1>(right) ),
-                             std::max( std::get<2>(left), std::get<2>(right) )
-                            };
+    auto minmax_operator =
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const minmax_type& left, const minmax_type& right) {
+        return minmax_type {thrust::max( std::get<0>(left), std::get<0>(right) ),
+                            thrust::max( std::get<1>(left), std::get<1>(right) ),
+                            thrust::max( std::get<2>(left), std::get<2>(right) ),
+                            thrust::min( std::get<3>(left), std::get<3>(right) )
+                           };
     };
-    Impl::transform_reduce(policy2d, max_operator, maximum_kernel, maximums);
+    Impl::transform_reduce(policy2d, minmax_operator, minmax_kernel, minmaxs);
 
-    // Compute minimum
-    double rho_min = 9999; // some large number
-    auto minimum_kernel = 
-      [=](const int ix, const int iy) { return rho(ix, iy); };
+    auto maxvel2 = std::get<0>(minmaxs);
+    auto maxdivu = std::get<1>(minmaxs);
+    auto rho_max = std::get<2>(minmaxs);
+    auto rho_min = std::get<3>(minmaxs);
 
-    auto min_operator =
-      [=] (const auto& left, const auto& right) { return std::min(left, right); };
-    Impl::transform_reduce(policy2d, min_operator, minimum_kernel, rho_min);
-    auto maxvel2 = std::get<0>(maximums);
-    auto maxdivu = std::get<1>(maximums);
-    auto rho_max = std::get<2>(maximums);
-    */
-
-    // To be removed
-    double maxdivu = 0;
-    double maxvel2 = 0;
-    double rho_max = 0;
-    double rho_min = 9999;
-
-    auto _rho = data_vars->rho();
-    auto _u = data_vars->u();
-    auto _v = data_vars->v();
-
-    _rho.updateSelf();
-    _u.updateSelf();
-    _v.updateSelf();
-    for(int iy=0; iy<ny; iy++) {
-      for(int ix=0; ix<nx; ix++) {
-        auto tmp_rho = _rho(ix, iy);
-        auto tmp_u   = _u(ix, iy);
-        auto tmp_v   = _v(ix, iy);
-
-        // derivatives
-        const int ixp1 = periodic(ix+1, nx);
-        const int ixm1 = periodic(ix-1, nx);
-        const int iyp1 = periodic(iy+1, ny);
-        const int iym1 = periodic(iy-1, ny);
-
-        const auto ux = (_u(ixp1, iy) - _u(ixm1, iy)) / (2*dx);
-        const auto uy = (_u(ix, iyp1) - _u(ix, iym1)) / (2*dx);
-        const auto vx = (_v(ixp1, iy) - _v(ixm1, iy)) / (2*dx);
-        const auto vy = (_v(ix, iyp1) - _v(ix, iym1)) / (2*dx);
-
-        maxdivu = std::max(maxdivu, std::abs(ux + vy));
-        maxvel2 = std::max(maxvel2, tmp_u * tmp_u + tmp_v * tmp_v);
-        rho_max = std::max(rho_max, tmp_rho);
-        rho_min = std::min(rho_min, tmp_rho);
-      }
-    }
     auto momentum_x_total = std::get<0>(moments) / (nx * ny);
     auto momentum_y_total = std::get<1>(moments) / (nx * ny);
     auto energy           = std::get<2>(moments) / (nx * ny);
@@ -490,6 +438,7 @@ private:
     auto vel2             = std::get<8>(moments) / (nx * ny);
 
     std::cout << std::scientific << std::setprecision(16) << std::flush;
+    std::cout << " it/nbiter: " << it << "/" << conf_.settings_.nbiter_ << std::endl;
     std::cout << " RMS, max speed: " << std::sqrt(vel2) << ", " << std::sqrt(maxvel2) << " [m/s]" << std::endl;
     //std::cout << " mean energy: " << energy << " [m2/s2]" << std::endl;
     //std::cout << " mean enstrophy: " << enstrophy << " [/s2]" << std::endl;
@@ -515,18 +464,18 @@ private:
   }
 
   template <class ViewType>
-  void add_noise(const ViewType& value, ViewType& noisy_value, const double error=0.0) {
+  void add_noise(const ViewType& value, ViewType& noisy_value, const value_type error=0.0) {
     auto [nx, ny] = conf_.settings_.n_;
     const auto value_tmp = value.mdspan();
     auto noisy_value_tmp = noisy_value.mdspan();
-    const auto noise_tmp = noise_.mdspan();
+    auto noise_tmp = noise_.mdspan();
 
-    const double mean = 0.0, stddev = 1.0;
+    const value_type mean = 0.0, stddev = 1.0;
     rand_.normal(noise_.data(), nx*ny, mean, stddev);
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
     Impl::for_each(policy2d, 
-      [=](const int ix, const int iy) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
         noisy_value_tmp(ix, iy) = value_tmp(ix, iy) + error * noise_tmp(ix, iy);
       });
   }
@@ -558,8 +507,7 @@ private:
   void to_file(std::string case_name, ViewType& value, const int it) {
     auto dir_name = directory_names_.at(case_name);
     value.updateSelf();
-    std::string file_name = dir_name + "/" + value.name() + "_step"
-                          + Impl::zfill(it / conf_.settings_.io_interval_, 10) + ".dat";
+    std::string file_name = dir_name + "/" + value.name() + "_step" + Impl::zfill(it, 10) + ".dat";
     Impl::to_binary(file_name, value.host_mdspan());
   }
 };

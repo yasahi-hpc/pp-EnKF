@@ -9,6 +9,9 @@
 #include <numeric>
 #include <cassert>
 #include <algorithm>
+#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
+  #include "../Cuda_Helper.hpp"
+#endif
 
 /* [TO DO] Check the behaviour of thrust::device_vector if it is configured for CPUs */
 template <typename ElementType>
@@ -217,14 +220,20 @@ public:
   inline void setIsEmpty(bool is_empty) { is_empty_ = is_empty; }
 
   void updateDevice() {
-    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
-      device_vector_ = host_vector_; 
+    //#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
+    //  device_vector_ = host_vector_;
+    //#endif
+    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
+      SafeCudaCall( cudaMemcpy(device_data_, host_data_, size_ * sizeof(value_type), cudaMemcpyHostToDevice) );
     #endif
   }
 
   void updateSelf() {
-    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
-      host_vector_ = device_vector_; 
+    //#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
+    //  host_vector_ = device_vector_;
+    //#endif
+    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
+      SafeCudaCall( cudaMemcpy(host_data_, device_data_, size_ * sizeof(value_type), cudaMemcpyDeviceToHost) );
     #endif
   } 
 

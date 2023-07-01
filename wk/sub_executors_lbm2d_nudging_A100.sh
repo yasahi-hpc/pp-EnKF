@@ -1,11 +1,10 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=12:00:00"
+#PJM -L "elapse=10:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=4
-#PJM --omp thread=18
+#PJM --mpi proc=1
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -27,7 +26,7 @@ then
     cd ../
     rm -rf build
     mkdir build && cd build
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=OPENMP ..
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
     cmake --build . -j 8
     cd ../wk/
 fi
@@ -35,8 +34,7 @@ fi
 export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
 
-mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename nature_256.json
-
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode $PJM_MPI_PROC \
-    ../build/mini-apps/lbm2d-letkf/stdpar/lbm2d-letkf-stdpar --filename letkf_256.json
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 1 \
+    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nature_256.json
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 1 \
+    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nudging_256.json

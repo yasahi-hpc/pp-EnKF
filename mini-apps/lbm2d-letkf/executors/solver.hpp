@@ -62,6 +62,7 @@ public:
     if(conf_.settings_.lyapnov_) {
       model_->reset(data_vars_, "purturbulate");
     }
+    mpi_conf_.fence();
   };
 
   void run(){
@@ -69,13 +70,8 @@ public:
     for(int it=0; it<conf_.settings_.nbiter_; it++) {
       timers_[TimerEnum::MainLoop]->begin();
 
-      timers_[TimerEnum::DA]->begin();
-      da_model_->apply(data_vars_, it);
-      timers_[TimerEnum::DA]->end();
-
-      timers_[TimerEnum::Diag]->begin();
-      model_->diag(data_vars_);
-      timers_[TimerEnum::Diag]->end();
+      da_model_->apply(data_vars_, it, timers_);
+      model_->diag(data_vars_, it, timers_);
 
       timers_[TimerEnum::LBMSolver]->begin();
       model_->solve(data_vars_);
@@ -87,6 +83,7 @@ public:
   }
 
   void finalize(){
+    mpi_conf_.fence();
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
       freeTimers(timers_);
@@ -145,11 +142,20 @@ private:
       conf_.settings_.beta_ = json_data["Settings"]["beta"].get<double>();
     }
 
+    if(json_data["Settings"].contains("is_async") ) {
+      conf_.settings_.is_async_ = json_data["Settings"]["is_async"].get<bool>();
+    }
+
     // IO settings
     io_conf_.base_dir_     = json_data["Settings"]["base_dir"].get<std::string>();
     io_conf_.case_name_    = json_data["Settings"]["case_name"].get<std::string>();
     if(json_data["Settings"].contains("in_case_name")) {
       io_conf_.in_case_name_ = json_data["Settings"]["in_case_name"].get<std::string>();
+    }
+
+    // da_interval should be divisible by io_interval.
+    if(conf_.settings_.da_interval_ % conf_.settings_.io_interval_ == 0) {
+      std::runtime_error("da_interval must be divisible by io_interval.");
     }
 
     // Saving json file to output directory
@@ -184,9 +190,18 @@ private:
     auto h_ref = conf_.phys_.h_ref_;
     auto io_interval = conf_.settings_.io_interval_;
 
+    #if defined(USE_SINGLE_PRECISION)
+      std::string precision = "float32";
+    #else
+      std::string precision = "float64";
+    #endif
+
+    std::string sim_type = conf_.settings_.is_async_ ? sim_type_ + " (async)" : sim_type_;
+
     if(mpi_conf_.is_master()) {
       std::cout
-          << "  sim_type = " << sim_type_ << std::endl
+          << "  precision = " << precision << std::endl
+          << "  sim_type = " << sim_type << std::endl
           << "  nx = " << nx << std::endl
           << "  nu = " << nu << " m2/s" << std::endl
           << "  u_ref = " << u_ref << " m/s" << std::endl
