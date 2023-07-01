@@ -142,6 +142,10 @@ private:
       conf_.settings_.beta_ = json_data["Settings"]["beta"].get<double>();
     }
 
+    if(json_data["Settings"].contains("is_async") ) {
+      conf_.settings_.is_async_ = json_data["Settings"]["is_async"].get<bool>();
+    }
+
     // IO settings
     io_conf_.base_dir_     = json_data["Settings"]["base_dir"].get<std::string>();
     io_conf_.case_name_    = json_data["Settings"]["case_name"].get<std::string>();
@@ -192,10 +196,12 @@ private:
       std::string precision = "float64";
     #endif
 
+    std::string sim_type = conf_.settings_.is_async_ ? sim_type_ + " (async)" : sim_type_;
+
     if(mpi_conf_.is_master()) {
       std::cout
           << "  precision = " << precision << std::endl
-          << "  sim_type = " << sim_type_ << std::endl
+          << "  sim_type = " << sim_type << std::endl
           << "  nx = " << nx << std::endl
           << "  nu = " << nu << " m2/s" << std::endl
           << "  u_ref = " << u_ref << " m/s" << std::endl

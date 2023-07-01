@@ -68,6 +68,7 @@ struct Settings {
   bool lyapnov_ = false;
   bool is_les_ = true;
   bool is_reference_ = true; // false for DA cases
+  bool is_async_ = false; // In order to enable overlapping, in senders/receivers version of letkf
   double ly_epsilon_ = 1.e-8;
 
   // data assimilation parameter

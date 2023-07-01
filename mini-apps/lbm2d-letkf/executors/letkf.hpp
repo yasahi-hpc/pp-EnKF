@@ -9,6 +9,16 @@
 #include "../da_functors.hpp"
 #include "da_models.hpp"
 
+namespace stdex = std::experimental;
+
+#if defined(ENABLE_OPENMP)
+  #include <exec/static_thread_pool.hpp>
+#else
+  #include "nvexec/stream_context.cuh"
+#endif
+#include <stdexec/execution.hpp>
+#include "exec/on.hpp"
+
 class LETKF : public DA_Model {
 private:
   using value_type = RealView2D::value_type;
@@ -27,6 +37,7 @@ private:
   int n_obs_local_;
   int n_obs_x_;
   int n_obs_;
+  bool is_async_ = false;
 
 public:
   LETKF(Config& conf, IOConfig& io_conf)=delete;
@@ -36,6 +47,7 @@ public:
   void initialize() {
     setFileInfo();
 
+    is_async_ = conf_.settings_.is_async_;
     auto [nx, ny] = conf_.settings_.n_;
     const int n_batch0 = nx * ny;
     const int n_stt = conf_.phys_.Q_; // lbm
@@ -70,7 +82,163 @@ public:
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0 || it % conf_.settings_.da_interval_ != 0) return;
+    if(is_async_) {
+      apply_async(data_vars, it, timers);
+    } else {
+      apply_sync(data_vars, it, timers);
+    }
+  }
 
+private:
+  // Asynchronous implementation with senders/receivers
+  void apply_async(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers) {
+    timers[TimerEnum::DA]->begin();
+    #if defined(ENABLE_OPENMP)
+      exec::static_thread_pool pool{std::thread::hardware_concurrency()};
+      auto scheduler = pool.get_scheduler();
+    #else
+      nvexec::stream_context stream_ctx{};
+      auto scheduler = stream_ctx.get_scheduler();
+    #endif
+    if(mpi_conf_.is_master()) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;
+    }
+
+    if(mpi_conf_.is_master()) {
+      timers[DA_Load]->begin();
+      load(data_vars, it);
+      timers[DA_Load]->end();
+    }
+
+    packX(data_vars, timers);
+
+    auto _packY = packY_sender(stdexec::just(), scheduler, data_vars);
+    auto _all2all = all2all_sender(_packY, data_vars);
+    stdexec::sync_wait( std::move( _all2all ) );
+
+    unpackX(data_vars, timers);
+    unpackY(data_vars, timers);
+
+    setyo(data_vars, timers);
+
+    timers[DA_LETKF]->begin();
+    letkf_solver_->solve();
+    timers[DA_LETKF]->end();
+
+    timers[DA_Update]->begin();
+    update(data_vars);
+    timers[DA_Update]->end();
+
+    timers[TimerEnum::DA]->end();
+  }
+
+  void packX(std::unique_ptr<DataVars>& data_vars, std::vector<Timer*>& timers) {
+    // Pack X
+    const auto f = data_vars->f().mdspan();
+    auto xk = xk_.mdspan();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(f, xk, {2, 0, 1});
+    timers[DA_Set_Matrix]->end();
+  }
+
+  void unpackX(std::unique_ptr<DataVars>& data_vars, std::vector<Timer*>& timers) {
+    // set X
+    auto xk_buffer = xk_buffer_.mdspan();
+    auto X = letkf_solver_->X().mdspan();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(xk_buffer, X, {0, 2, 1});
+    timers[DA_Set_Matrix]->end();
+  }
+
+  void unpackY(std::unique_ptr<DataVars>& data_vars, std::vector<Timer*>& timers) {
+    // set Y
+    auto yk_buffer = yk_buffer_.mdspan();
+    auto Y = letkf_solver_->Y().mdspan();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
+    timers[DA_Set_Matrix]->end();
+  }
+
+  void setyo(std::unique_ptr<DataVars>& data_vars, std::vector<Timer*>& timers) {
+    // set yo
+    auto [nx, ny] = conf_.settings_.n_;
+    auto rho_obs = data_vars->rho_obs().mdspan();
+    auto u_obs   = data_vars->u_obs().mdspan();
+    auto v_obs   = data_vars->v_obs().mdspan();
+    auto y_obs   = letkf_solver_->y_obs().mdspan();
+    timers[DA_Broadcast]->begin();
+    broadcast(rho_obs);
+    broadcast(u_obs);
+    broadcast(v_obs);
+    timers[DA_Broadcast]->end();
+
+    const int ny_local = ny/mpi_conf_.size();
+    const int y_offset = ny_local * mpi_conf_.rank();
+    auto _y_obs = Impl::reshape(y_obs, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny_local}));
+    Iterate_policy<4> yo_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny_local});
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::for_each(yo_pack_policy4d, pack_y_functor(conf_, y_offset, rho_obs, u_obs, v_obs, _y_obs));
+    timers[DA_Set_Matrix]->end();
+  }
+
+  template <class Sender, class Scheduler>
+  stdexec::sender auto packY_sender(Sender&& sender, Scheduler&& scheduler, std::unique_ptr<DataVars>& data_vars) {
+    // Pack Y
+    auto yk = yk_.mdspan();
+
+    auto [nx, ny] = conf_.settings_.n_;
+    auto rho = data_vars->rho().mdspan();
+    auto u   = data_vars->u().mdspan();
+    auto v   = data_vars->v().mdspan();
+
+    const int y_offset0 = 0;
+    const std::size_t size = n_obs_x_ * n_obs_x_ * nx * ny;
+    auto _yk = Impl::reshape(yk, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny}));
+    auto f = pack_y_functor(conf_, y_offset0, rho, u, v, _yk);
+    int n0 = n_obs_x_, n1 = n_obs_x_, n2 = nx, n3 = ny;
+    auto functor_1d = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
+      if(std::is_same_v<default_iterate_layout, stdex::layout_left>) {
+        const int i0   = idx % n0;
+        const int i123 = idx / n0;
+        const int i1   = i123%n1;
+        const int i23  = i123/n1;
+        const int i2   = i23%n2;
+        const int i3   = i23/n2;
+        f(i0, i1, i2, i3);
+      } else {
+        const int i3   = idx % n3;
+        const int i012 = idx / n3;
+        const int i2   = i012%n2;
+        const int i01  = i012/n2;
+        const int i1   = i01%n1;
+        const int i0   = i01/n1;
+        f(i0, i1, i2, i3);
+      }
+    };
+    return sender | exec::on(scheduler, stdexec::bulk(size, functor_1d));
+  }
+
+  template <class Sender>
+  stdexec::sender auto all2all_sender(Sender&& sender, std::unique_ptr<DataVars>& data_vars) {
+    auto xk = xk_.mdspan();
+    auto xk_buffer = xk_buffer_.mdspan();
+
+    auto yk = yk_.mdspan();
+    auto yk_buffer = yk_buffer_.mdspan();
+
+    return sender | stdexec::then( [&] {
+      all2all(xk, xk_buffer); // xk(n_stt, n_batch, n_ens) -> xk_buffer(n_stt, n_batch, n_ens)
+      all2all(yk, yk_buffer); // yk(n_obs, n_batch, n_ens) -> yk_buffer(n_obs, n_batch, n_ens)
+    });
+  }
+
+private:
+  // Conventional implementation with thrust
+  void apply_sync(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers) {
     timers[TimerEnum::DA]->begin();
     if(mpi_conf_.is_master()) {
       std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;

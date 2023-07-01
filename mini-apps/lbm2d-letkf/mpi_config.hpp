@@ -23,7 +23,7 @@ public:
 
 public:
   void initialize(int* argc, char*** argv) {
-    is_initialized = true;
+    is_initialized_ = true;
     communicator_ = MPI_COMM_WORLD;
     int required = MPI_THREAD_MULTIPLE;
     int provided;
