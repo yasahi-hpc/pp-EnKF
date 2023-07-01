@@ -20,7 +20,7 @@ namespace Impl {
   /* Transpose batched matrix */
   template <class InputView, class OutputView,
           std::enable_if_t<InputView::rank()==3 && OutputView::rank()==3, std::nullptr_t> = nullptr>
-  void transpose(const InputView& in, OutputView& out, const std::array<int, 3>& axes) {
+  void transpose(const blasHandle_t& blas_handle, const InputView& in, OutputView& out, const std::array<int, 3>& axes) {
     static_assert( std::is_same_v<typename InputView::value_type, typename OutputView::value_type> );
     static_assert( std::is_same_v<typename InputView::layout_type, typename OutputView::layout_type> );
     using value_type = InputView::value_type;
@@ -57,7 +57,7 @@ namespace Impl {
 
       const mdspan2d_type sub_in(in.data_handle(), in_shape);
       mdspan2d_type sub_out(out.data_handle(), out_shape);
-      transpose(sub_in, sub_out);
+      transpose(blas_handle, sub_in, sub_out);
     } else if(axes == axes_type({2, 0, 1})) {
       using mdspan2d_type = stdex::mdspan<value_type, stdex::dextents<size_type, 2>, layout_type>;
       using extent2d_type = std::array<std::size_t, 2>;
@@ -66,7 +66,7 @@ namespace Impl {
 
       const mdspan2d_type sub_in(in.data_handle(), in_shape);
       mdspan2d_type sub_out(out.data_handle(), out_shape);
-      transpose(sub_in, sub_out);
+      transpose(blas_handle, sub_in, sub_out);
     } else if(axes == axes_type({2, 1, 0})) {
       Impl::for_each(policy3d,
         [=](const int i0, const int i1, const int i2) {
@@ -75,6 +75,18 @@ namespace Impl {
     } else {
       std::runtime_error("Invalid axes specified.");
     }
+  }
+
+  /* Transpose batched matrix */
+  template <class InputView, class OutputView,
+          std::enable_if_t<InputView::rank()==3 && OutputView::rank()==3, std::nullptr_t> = nullptr>
+  void transpose(const InputView& in, OutputView& out, const std::array<int, 3>& axes) {
+    static_assert( std::is_same_v<typename InputView::value_type, typename OutputView::value_type> );
+    static_assert( std::is_same_v<typename InputView::layout_type, typename OutputView::layout_type> );
+    Impl::blasHandle_t blas_handle;
+    blas_handle.create();
+    transpose(blas_handle, in, out, axes);
+    blas_handle.destroy();
   }
 };
 

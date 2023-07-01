@@ -8,6 +8,20 @@
 namespace stdex = std::experimental;
 
 namespace Impl {
+  struct blasHandle_t {
+  public:
+    void create() {}
+    void destroy() {}
+  };
+
+  template <class T>
+  struct syevjHandle_t {
+  public:
+    template <class MatrixView, class VectorView,
+              std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
+    void create(MatrixView& a, VectorView& v, T tol=1.0e-7, int max_sweeps=100, int sort_eig=0) {}
+    void destroy() {}
+  };
 
   /*
    * Batched matrix matrix product
@@ -69,6 +83,19 @@ namespace Impl {
       }
     }
   }
+
+  template <class ViewA, class ViewB, class ViewC,
+            std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==3 && ViewC::rank()==3, std::nullptr_t> = nullptr>
+  void matrix_matrix_product(const blasHandle_t& blas_handle,
+                             const ViewA& A,
+                             const ViewB& B,
+                             ViewC& C,
+                             std::string _transa,
+                             std::string _transb,
+                             typename ViewA::value_type alpha = 1,
+                             typename ViewA::value_type beta = 0) {
+    matrix_matrix_product(A, B, C, _transa, _transb, alpha, beta);
+  }
   
   /*
    * Batched matrix vector product
@@ -120,7 +147,18 @@ namespace Impl {
         vecC.noalias() = alpha * matA.transpose() * vecB;
       }
     }
+  }
 
+  template <class ViewA, class ViewB, class ViewC,
+            std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==2 && ViewC::rank()==2, std::nullptr_t> = nullptr>
+  void matrix_vector_product(const blasHandle_t& blas_handle,
+                             const ViewA& A,
+                             const ViewB& B,
+                             ViewC& C,
+                             std::string _transa,
+                             typename ViewA::value_type alpha = 1
+                            ) {
+    matrix_vector_product(A, B, C, _transa, alpha);
   }
 
   /*
@@ -160,6 +198,12 @@ namespace Impl {
     }
   }
 
+  template <class Handle, class MatrixView, class VectorView,
+            std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
+  void eig(const Handle& syevj_handle, MatrixView& a, VectorView& v) {
+    eig(a, v);
+  }
+
   // 2D transpose
   template <class InputView, class OutputView, int _blocksize=16,
             std::enable_if_t<InputView::rank()==2 && OutputView::rank()==2, std::nullptr_t> = nullptr>
@@ -191,6 +235,12 @@ namespace Impl {
         }
       }
     }
+  }
+
+  template <class InputView, class OutputView, int _blocksize=16,
+            std::enable_if_t<InputView::rank()==2 && OutputView::rank()==2, std::nullptr_t> = nullptr>
+  void transpose(const blasHandle_t& blas_handle, const InputView& in, OutputView& out) {
+    transpose(in, out);
   }
 };
 
