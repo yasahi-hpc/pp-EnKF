@@ -13,6 +13,8 @@ using letkf_config_type = std::tuple<std::size_t, std::size_t, std::size_t, std:
 class LETKFSolver {
 private:
   using value_type = RealView2D::value_type;
+  Impl::blasHandle_t blas_handle_;
+  Impl::syevjHandle_t<value_type> syevj_handle_;
   
   RealView3D X_, dX_; // (n_stt, n_ens, n_batch)
   RealView3D Y_, dY_; // (n_obs, n_ens, n_batch)
@@ -57,7 +59,11 @@ public:
     // Allocate views
     initialize();
   }
-  ~LETKFSolver(){}
+
+  ~LETKFSolver(){
+    blas_handle_.destroy();
+    syevj_handle_.destroy();
+  }
 
 public:
   // Getters
@@ -94,14 +100,14 @@ public:
     auto tmp_oe = tmp_oe_.mdspan();
     const value_type beta = (static_cast<int>(n_ens_) - 1) / beta_;
     Impl::deep_copy(I, Q); // (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(rR, dY, tmp_oe, "N", "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_obs, n_ens, n_batch)
-    Impl::matrix_matrix_product(dY, tmp_oe, Q, "T", "N", 1, beta); // (n_ens, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, rR, dY, tmp_oe, "N", "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_obs, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, dY, tmp_oe, Q, "T", "N", 1, beta); // (n_ens, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
 
     // Q = V * diag(d) * V^T
     auto d = d_.mdspan();
     auto V = V_.mdspan();
     Impl::deep_copy(Q, V);
-    Impl::eig(V, d); // (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch), (n_ens, n_batch)
+    Impl::eig(syevj_handle_, V, d); // (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch), (n_ens, n_batch)
 
     // P = V * inv(d) * V^T
     // P: (n_ens, n_ens, n_batch)
@@ -109,8 +115,8 @@ public:
     auto tmp_ee = tmp_ee_.mdspan();
     auto P = P_.mdspan();
     Impl::diag(d, inv_D, -1); // (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(V, tmp_ee, P, "N", "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, P, "N", "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
 
     // w = P * (dY^T * inv(R) * dyo)
     auto w  = w_.mdspan();
@@ -118,21 +124,21 @@ public:
     auto tmp_e = tmp_e_.mdspan();
     auto dyo = Impl::squeeze(yo, 1);
     auto _w = Impl::squeeze(w, 1);
-    Impl::matrix_vector_product(rR, dyo, tmp_o, "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_batch) -> (n_obs, n_batch)
-    Impl::matrix_vector_product(dY, tmp_o, tmp_e, "T"); // (n_ens, n_obs, n_batch) * (n_obs, n_batch) -> (n_ens, n_batch)
-    Impl::matrix_vector_product(P, tmp_e, _w, "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_batch) -> (n_ens, n_batch)
+    Impl::matrix_vector_product(blas_handle_, rR, dyo, tmp_o, "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_batch) -> (n_obs, n_batch)
+    Impl::matrix_vector_product(blas_handle_, dY, tmp_o, tmp_e, "T"); // (n_ens, n_obs, n_batch) * (n_obs, n_batch) -> (n_ens, n_batch)
+    Impl::matrix_vector_product(blas_handle_, P, tmp_e, _w, "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_batch) -> (n_ens, n_batch)
 
     // W = sqrt(Ne-1) * V * inv(sqrt(D)) * V^T
     auto W = W_.mdspan();
     const value_type alpha = sqrt(static_cast<int>(n_ens_) - 1);
     Impl::diag(d, inv_D, -0.5); // (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(V, tmp_ee, W, "N", "N", alpha); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, W, "N", "N", alpha); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
 
     // W = W + w
     // Xsol = x_mean + matmat(dX, W)
     Impl::axpy(W, w); // (n_ens, n_ens, n_batch) + (n_ens, 1, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(dX, W, X, "N", "N"); // (n_stt, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_stt, n_ens, n_batch)
+    Impl::matrix_matrix_product(blas_handle_, dX, W, X, "N", "N"); // (n_stt, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_stt, n_ens, n_batch)
     Impl::axpy(X, x_mean); // (n_stt, n_ens, n_batch) + (n_stt, 1, n_batch) -> (n_stt, n_ens, n_batch)
   }
 
@@ -169,6 +175,11 @@ private:
     auto I = I_.mdspan();
     Impl::identity(rR);
     Impl::identity(I);
+
+    auto d = d_.mdspan();
+    auto V = V_.mdspan();
+    blas_handle_.create();
+    syevj_handle_.create(V, d);
   }
 };
 
