@@ -24,6 +24,7 @@ private:
   using value_type = RealView2D::value_type;
   MPIConfig mpi_conf_;
 
+  Impl::blasHandle_t blas_handle_;
   std::unique_ptr<LETKFSolver> letkf_solver_;
   
   /* Views before transpose */ 
@@ -43,7 +44,7 @@ public:
   LETKF(Config& conf, IOConfig& io_conf)=delete;
   LETKF(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf) : DA_Model(conf, io_conf), mpi_conf_(mpi_conf) {}
 
-  virtual ~LETKF(){}
+  virtual ~LETKF(){ blas_handle_.destroy(); }
   void initialize() {
     setFileInfo();
 
@@ -78,6 +79,8 @@ public:
 
     Iterate_policy<3> policy3d({0, 0, 0}, {n_obs_x_, n_obs_x_, n_batch});
     Impl::for_each(policy3d, initialize_rR_functor(conf_, y_offset, rR));
+
+    blas_handle_.create();
   }
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
@@ -138,7 +141,7 @@ private:
     auto xk = xk_.mdspan();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(f, xk, {2, 0, 1});
+    Impl::transpose(blas_handle_, f, xk, {2, 0, 1});
     timers[DA_Set_Matrix]->end();
   }
 
@@ -148,7 +151,7 @@ private:
     auto X = letkf_solver_->X().mdspan();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(xk_buffer, X, {0, 2, 1});
+    Impl::transpose(blas_handle_, xk_buffer, X, {0, 2, 1});
     timers[DA_Set_Matrix]->end();
   }
 
@@ -158,7 +161,7 @@ private:
     auto Y = letkf_solver_->Y().mdspan();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
+    Impl::transpose(blas_handle_, yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
     timers[DA_Set_Matrix]->end();
   }
 
@@ -273,7 +276,7 @@ private:
     auto X = letkf_solver_->X().mdspan();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(f, xk, {2, 0, 1}); // (nx, ny, Q) -> (Q, nx*ny)
+    Impl::transpose(blas_handle_, f, xk, {2, 0, 1}); // (nx, ny, Q) -> (Q, nx*ny)
     timers[DA_Set_Matrix]->end();
 
     timers[DA_All2All]->begin();
@@ -281,7 +284,7 @@ private:
     timers[DA_All2All]->end();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(xk_buffer, X, {0, 2, 1});
+    Impl::transpose(blas_handle_, xk_buffer, X, {0, 2, 1});
     timers[DA_Set_Matrix]->end();
 
     // set Y
@@ -306,7 +309,7 @@ private:
     timers[DA_All2All]->end();
 
     timers[DA_Set_Matrix]->begin();
-    Impl::transpose(yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
+    Impl::transpose(blas_handle_, yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
     timers[DA_Set_Matrix]->end();
 
     // set yo
@@ -335,9 +338,9 @@ private:
     auto xk = xk_.mdspan();
     auto xk_buffer = xk_buffer_.mdspan();
     auto f = data_vars->f().mdspan();
-    Impl::transpose(X, xk_buffer, {0, 2, 1}); // X (n_stt, n_ens, n_batch) -> xk_buffer (n_stt, n_batch, n_ens)
+    Impl::transpose(blas_handle_, X, xk_buffer, {0, 2, 1}); // X (n_stt, n_ens, n_batch) -> xk_buffer (n_stt, n_batch, n_ens)
     all2all(xk_buffer, xk); // xk_buffer (n_stt, n_batch, n_ens) -> xk(n_stt, n_batch, n_ens)
-    Impl::transpose(xk, f, {1, 2, 0}); // (Q, nx*ny) -> (nx, ny, Q)
+    Impl::transpose(blas_handle_, xk, f, {1, 2, 0}); // (Q, nx*ny) -> (nx, ny, Q)
 
     auto [nx, ny] = conf_.settings_.n_;
     auto rho = data_vars->rho().mdspan();
