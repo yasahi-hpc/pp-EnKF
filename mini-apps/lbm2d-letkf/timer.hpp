@@ -4,6 +4,7 @@
 #include <chrono>
 #include <vector>
 #include <iostream>
+#include <map>
 
 struct Timer {
 private:
@@ -80,6 +81,23 @@ static void freeTimers(std::vector<Timer*> &timers) {
   for(auto it = timers.begin(); it != timers.end(); ++it) {
     delete *it;
   }
+};
+
+inline auto timersToDict(std::vector<Timer*> &timers) {
+  std::map<int, std::vector<std::string> > dict;
+
+  // Header
+  int key = 0;
+  dict[key] = std::vector<std::string>{"name", "seconds", "count"};
+  for(auto it = timers.begin(); it != timers.end(); ++it) {
+    key++;
+    std::vector<std::string> value;
+    value.push_back( (*it)->label() );
+    value.push_back( std::to_string( (*it)->seconds() ) );
+    value.push_back( std::to_string( (*it)->calls() ) );
+    dict[key] = value;
+  }
+  return dict;
 };
 
 template < class FunctorType >
