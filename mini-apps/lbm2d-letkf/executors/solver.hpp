@@ -153,6 +153,10 @@ private:
       conf_.settings_.is_async_ = json_data["Settings"]["is_async"].get<bool>();
     }
 
+    if(json_data["Settings"].contains("is_bcast_on_host") ) {
+      conf_.settings_.is_bcast_on_host_ = json_data["Settings"]["is_bcast_on_host"].get<bool>();
+    }
+
     // IO settings
     io_conf_.base_dir_     = json_data["Settings"]["base_dir"].get<std::string>();
     io_conf_.case_name_    = json_data["Settings"]["case_name"].get<std::string>();

@@ -39,6 +39,7 @@ enum TimerEnum : int {Total,
                       MainLoop,
                       DA,
                       DA_Load,
+                      DA_Load_H2D,
                       DA_Set_Matrix,
                       DA_All2All,
                       DA_Broadcast,
@@ -55,6 +56,7 @@ static void defineTimers(std::vector<Timer*> &timers) {
   timers[TimerEnum::MainLoop]      = new Timer("MainLoop");
   timers[TimerEnum::DA]            = new Timer("DA");
   timers[TimerEnum::DA_Load]       = new Timer("DA_Load");
+  timers[TimerEnum::DA_Load_H2D]   = new Timer("DA_Load_H2D");
   timers[TimerEnum::DA_Set_Matrix] = new Timer("DA_Set_Matrix");
   timers[TimerEnum::DA_All2All]    = new Timer("DA_All2All");
   timers[TimerEnum::DA_Broadcast]  = new Timer("DA_Broadcast");

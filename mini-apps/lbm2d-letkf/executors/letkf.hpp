@@ -11,13 +11,11 @@
 
 namespace stdex = std::experimental;
 
-#if defined(ENABLE_OPENMP)
-  #include <exec/static_thread_pool.hpp>
-#else
-  #include "nvexec/stream_context.cuh"
-#endif
+#include "nvexec/stream_context.cuh"
+#include <exec/static_thread_pool.hpp>
 #include <stdexec/execution.hpp>
-#include "exec/on.hpp"
+#include <exec/async_scope.hpp>
+#include <exec/on.hpp>
 
 class LETKF : public DA_Model {
 private:
@@ -49,6 +47,13 @@ public:
     setFileInfo();
 
     is_async_ = conf_.settings_.is_async_;
+    // if load_to_device is true, then load data from file to device memory
+    if(is_async_) {
+      load_to_device_ = false;
+    } else {
+      load_to_device_ = !conf_.settings_.is_bcast_on_host_;
+    }
+
     auto [nx, ny] = conf_.settings_.n_;
     const int n_batch0 = nx * ny;
     const int n_stt = conf_.phys_.Q_; // lbm
@@ -85,6 +90,11 @@ public:
 
   void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
     if(it == 0 || it % conf_.settings_.da_interval_ != 0) return;
+
+    if(mpi_conf_.is_master()) {
+      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;
+    }
+
     if(is_async_) {
       apply_async(data_vars, it, timers);
     } else {
@@ -95,7 +105,6 @@ public:
 private:
   // Asynchronous implementation with senders/receivers
   void apply_async(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers) {
-    timers[TimerEnum::DA]->begin();
     #if defined(ENABLE_OPENMP)
       exec::static_thread_pool pool{std::thread::hardware_concurrency()};
       auto scheduler = pool.get_scheduler();
@@ -103,29 +112,116 @@ private:
       nvexec::stream_context stream_ctx{};
       auto scheduler = stream_ctx.get_scheduler();
     #endif
+
+    exec::async_scope scope;
+    exec::static_thread_pool io_thread_pool{std::thread::hardware_concurrency()};
+    auto io_scheduler = io_thread_pool.get_scheduler();
+    auto _load = stdexec::just() |
+      stdexec::then([&]{
+        if(mpi_conf_.is_master()) {
+          timers[DA_Load]->begin();
+          load(data_vars, it);
+          timers[DA_Load]->end();
+        }
+      });
+
+    timers[TimerEnum::DA]->begin();
+    scope.spawn(stdexec::on(io_scheduler, std::move(_load)));
+
+    // set X
+    const auto f = data_vars->f().mdspan();
+    auto xk = xk_.mdspan();
+    auto xk_buffer = xk_buffer_.mdspan();
+    auto X = letkf_solver_->X().mdspan();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(blas_handle_, f, xk, {2, 0, 1}); // (nx, ny, Q) -> (Q, nx*ny)
+    timers[DA_Set_Matrix]->end();
+
+    timers[DA_All2All]->begin();
+    all2all(xk, xk_buffer); // xk(n_stt, n_batch, n_ens) -> xk_buffer(n_stt, n_batch, n_ens)
+    timers[DA_All2All]->end();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(blas_handle_, xk_buffer, X, {0, 2, 1});
+    timers[DA_Set_Matrix]->end();
+
+    // set Y
+    auto yk = yk_.mdspan();
+    auto yk_buffer = yk_buffer_.mdspan();
+    auto Y = letkf_solver_->Y().mdspan();
+
+    auto [nx, ny] = conf_.settings_.n_;
+    auto rho = data_vars->rho().mdspan();
+    auto u   = data_vars->u().mdspan();
+    auto v   = data_vars->v().mdspan();
+
+    const int y_offset0 = 0;
+    auto _yk = Impl::reshape(yk, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny}));
+    Iterate_policy<4> yk_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny});
+    timers[DA_Set_Matrix]->begin();
+    Impl::for_each(yk_pack_policy4d, pack_y_functor(conf_, y_offset0, rho, u, v, _yk));
+    timers[DA_Set_Matrix]->end();
+
+    timers[DA_All2All]->begin();
+    all2all(yk, yk_buffer); // yk(n_obs, n_batch, n_ens) -> yk_buffer(n_obs, n_batch, n_ens)
+    timers[DA_All2All]->end();
+
+    timers[DA_Set_Matrix]->begin();
+    Impl::transpose(blas_handle_, yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
+    timers[DA_Set_Matrix]->end();
+
+    stdexec::sync_wait( scope.on_empty() );
+
+    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
     if(mpi_conf_.is_master()) {
-      std::cout << __PRETTY_FUNCTION__ << ": t=" << it << std::endl;
+      if(!load_to_device_) {
+        data_vars->rho_obs().updateDevice();
+        data_vars->u_obs().updateDevice();
+        data_vars->v_obs().updateDevice();
+      }
     }
 
-    if(mpi_conf_.is_master()) {
-      timers[DA_Load]->begin();
-      load(data_vars, it);
-      timers[DA_Load]->end();
-    }
+    // set yo
+    auto _broadcast = stdexec::just() |
+      stdexec::then([&]{
+        if(load_to_device_) {
+          auto rho_obs = data_vars->rho_obs().mdspan();
+          auto u_obs   = data_vars->u_obs().mdspan();
+          auto v_obs   = data_vars->v_obs().mdspan();
+          timers[DA_Broadcast]->begin();
+          broadcast(rho_obs);
+          broadcast(u_obs);
+          broadcast(v_obs);
+          timers[DA_Broadcast]->end();
+        } else {
+          auto rho_obs = data_vars->rho_obs().host_mdspan();
+          auto u_obs   = data_vars->u_obs().host_mdspan();
+          auto v_obs   = data_vars->v_obs().host_mdspan();
+          timers[DA_Broadcast]->begin();
+          broadcast(rho_obs);
+          broadcast(u_obs);
+          broadcast(v_obs);
+          timers[DA_Broadcast]->end();
 
-    packX(data_vars, timers);
+          timers[DA_Load_H2D]->begin();
+          data_vars->rho_obs().updateDevice();
+          data_vars->u_obs().updateDevice();
+          data_vars->v_obs().updateDevice();
+          timers[DA_Load_H2D]->end();
+        }
+      });
 
-    auto _packY = packY_sender(stdexec::just(), scheduler, data_vars);
-    auto _all2all = all2all_sender(_packY, data_vars);
-    stdexec::sync_wait( std::move( _all2all ) );
-
-    unpackX(data_vars, timers);
-    unpackY(data_vars, timers);
+    auto _axpy_and_braodcast = stdexec::when_all(
+      std::move(_broadcast),
+      std::move(_axpy)
+    );
+    stdexec::sync_wait( std::move(_axpy_and_braodcast) );
 
     setyo(data_vars, timers);
 
     timers[DA_LETKF]->begin();
-    letkf_solver_->solve();
+    letkf_solver_->solve_evd();
     timers[DA_LETKF]->end();
 
     timers[DA_Update]->begin();
@@ -172,11 +268,6 @@ private:
     auto u_obs   = data_vars->u_obs().mdspan();
     auto v_obs   = data_vars->v_obs().mdspan();
     auto y_obs   = letkf_solver_->y_obs().mdspan();
-    timers[DA_Broadcast]->begin();
-    broadcast(rho_obs);
-    broadcast(u_obs);
-    broadcast(v_obs);
-    timers[DA_Broadcast]->end();
 
     const int ny_local = ny/mpi_conf_.size();
     const int y_offset = ny_local * mpi_conf_.rank();
@@ -313,15 +404,36 @@ private:
     timers[DA_Set_Matrix]->end();
 
     // set yo
+    if(load_to_device_) {
+      auto rho_obs = data_vars->rho_obs().mdspan();
+      auto u_obs   = data_vars->u_obs().mdspan();
+      auto v_obs   = data_vars->v_obs().mdspan();
+      timers[DA_Broadcast]->begin();
+      broadcast(rho_obs);
+      broadcast(u_obs);
+      broadcast(v_obs);
+      timers[DA_Broadcast]->end();
+    } else {
+      auto rho_obs = data_vars->rho_obs().host_mdspan();
+      auto u_obs   = data_vars->u_obs().host_mdspan();
+      auto v_obs   = data_vars->v_obs().host_mdspan();
+      timers[DA_Broadcast]->begin();
+      broadcast(rho_obs);
+      broadcast(u_obs);
+      broadcast(v_obs);
+      timers[DA_Broadcast]->end();
+
+      timers[DA_Load_H2D]->begin();
+      data_vars->rho_obs().updateDevice();
+      data_vars->u_obs().updateDevice();
+      data_vars->v_obs().updateDevice();
+      timers[DA_Load_H2D]->end();
+    }
+
     auto rho_obs = data_vars->rho_obs().mdspan();
     auto u_obs   = data_vars->u_obs().mdspan();
     auto v_obs   = data_vars->v_obs().mdspan();
     auto y_obs   = letkf_solver_->y_obs().mdspan();
-    timers[DA_Broadcast]->begin();
-    broadcast(rho_obs);
-    broadcast(u_obs);
-    broadcast(v_obs);
-    timers[DA_Broadcast]->end();
 
     const int ny_local = ny/mpi_conf_.size();
     const int y_offset = ny_local * mpi_conf_.rank();
