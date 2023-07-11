@@ -1,7 +1,7 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=60:00"
+#PJM -L "elapse=10:00"
 #PJM -s
 #PJM -g jh220031a
 #PJM --mpi proc=4
@@ -38,14 +38,5 @@ export UCX_RNDV_FRAG_MEM_TYPE=cuda
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
     ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nature_256.json
 
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename letkf_256.json
-
 mpiexec -machinefile $PJM_O_NODEINF -np 1 -npernode 1 \
-    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename nature_512.json
-
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename letkf_512.json
-
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
-    ./wrapper.sh ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename letkf_async_512.json
+    ../build/mini-apps/lbm2d-letkf/executors/lbm2d-letkf-executors --filename no_da_256.json

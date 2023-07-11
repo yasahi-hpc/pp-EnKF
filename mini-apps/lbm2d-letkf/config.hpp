@@ -69,6 +69,7 @@ struct Settings {
   bool is_les_ = true;
   bool is_reference_ = true; // false for DA cases
   bool is_async_ = false; // In order to enable overlapping, in senders/receivers version of letkf
+  bool is_bcast_on_host_ = false; // broadcast on device or host
   double ly_epsilon_ = 1.e-8;
 
   // data assimilation parameter

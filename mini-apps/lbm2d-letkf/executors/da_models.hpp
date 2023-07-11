@@ -17,6 +17,7 @@ protected:
   Config conf_;
   IOConfig io_conf_;
   std::string base_dir_name_;
+  bool load_to_device_ = true;
 
 public:
   DA_Model(Config& conf, IOConfig& io_conf) : conf_(conf), io_conf_(io_conf) {
@@ -53,13 +54,25 @@ protected:
     from_file(data_vars->v_obs(), it);
   }
 
+  void load(std::unique_ptr<DataVars>& data_vars, const std::string variable, const int it) {
+    if(variable == "rho") {
+      from_file(data_vars->rho_obs(), it);
+    } else if(variable == "u") {
+      from_file(data_vars->u_obs(), it);
+    } else if(variable == "v") {
+      from_file(data_vars->v_obs(), it);
+    }
+  }
+
 private:
   template <class ViewType>
   void from_file(ViewType& value, const int step) {
     auto file_name = base_dir_name_ + "/" + value.name() + "_step" + Impl::zfill(step, 10) + ".dat";
     auto mdspan = value.host_mdspan();
     Impl::from_binary(file_name, mdspan);
-    value.updateDevice();
+    if(load_to_device_) {
+      value.updateDevice();
+    }
   }
 
 };

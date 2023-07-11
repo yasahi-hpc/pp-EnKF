@@ -84,6 +84,12 @@ public:
 
   void finalize(){
     mpi_conf_.fence();
+    // Output elapsed time in csv
+    const std::string performance_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_ + "/performance";
+    const std::string filename = performance_dir + "/" + "elapsed_time_rank" + std::to_string(mpi_conf_.rank()) + ".csv";
+    auto performance_dict = timersToDict(timers_);
+    Impl::to_csv(filename, performance_dict);
+
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
       freeTimers(timers_);
@@ -156,7 +162,10 @@ private:
 
     // Saving json file to output directory
     const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
+    const std::string performance_dir = out_dir + "/" + "performance";
     Impl::mkdirs(out_dir, 0755);
+    Impl::mkdirs(performance_dir, 0755);
+
     std::ofstream o(out_dir + "/input.json");
     o << std::setw(4) << json_data << std::endl;
 

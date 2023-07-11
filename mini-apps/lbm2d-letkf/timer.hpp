@@ -4,6 +4,7 @@
 #include <chrono>
 #include <vector>
 #include <iostream>
+#include <map>
 
 struct Timer {
 private:
@@ -38,6 +39,7 @@ enum TimerEnum : int {Total,
                       MainLoop,
                       DA,
                       DA_Load,
+                      DA_Load_H2D,
                       DA_Set_Matrix,
                       DA_All2All,
                       DA_Broadcast,
@@ -54,6 +56,7 @@ static void defineTimers(std::vector<Timer*> &timers) {
   timers[TimerEnum::MainLoop]      = new Timer("MainLoop");
   timers[TimerEnum::DA]            = new Timer("DA");
   timers[TimerEnum::DA_Load]       = new Timer("DA_Load");
+  timers[TimerEnum::DA_Load_H2D]   = new Timer("DA_Load_H2D");
   timers[TimerEnum::DA_Set_Matrix] = new Timer("DA_Set_Matrix");
   timers[TimerEnum::DA_All2All]    = new Timer("DA_All2All");
   timers[TimerEnum::DA_Broadcast]  = new Timer("DA_Broadcast");
@@ -80,6 +83,23 @@ static void freeTimers(std::vector<Timer*> &timers) {
   for(auto it = timers.begin(); it != timers.end(); ++it) {
     delete *it;
   }
+};
+
+inline auto timersToDict(std::vector<Timer*> &timers) {
+  std::map<int, std::vector<std::string> > dict;
+
+  // Header
+  int key = 0;
+  dict[key] = std::vector<std::string>{"name", "seconds", "count"};
+  for(auto it = timers.begin(); it != timers.end(); ++it) {
+    key++;
+    std::vector<std::string> value;
+    value.push_back( (*it)->label() );
+    value.push_back( std::to_string( (*it)->seconds() ) );
+    value.push_back( std::to_string( (*it)->calls() ) );
+    dict[key] = value;
+  }
+  return dict;
 };
 
 template < class FunctorType >
