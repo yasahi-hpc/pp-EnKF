@@ -36,11 +36,13 @@ public:
     // Initialize MPI
     mpi_conf_.initialize(argc, argv);
 
-    // Declare timers
-    defineTimers(timers_);
-
     // Initialize Configuration from the input json file
     initialize_conf(filename, conf_);
+
+    // Declare timers
+    defineTimers(timers_, conf_.settings_.use_time_stamps_);
+    mpi_conf_.fence();
+    resetTimers(timers_); // In order to share the initial time among all the timers
 
     // Allocate attributes
     data_vars_ = std::move( std::unique_ptr<DataVars>(new DataVars(conf_)) );
@@ -90,12 +92,19 @@ public:
     auto performance_dict = timersToDict(timers_);
     Impl::to_csv(filename, performance_dict);
 
+    if(conf_.settings_.use_time_stamps_) {
+      const std::string timestamps_filename = performance_dir + "/" + "time_stamps_rank" + std::to_string(mpi_conf_.rank()) + ".csv";
+      auto timestamps_dict = timeStampsToDict(timers_);
+      Impl::to_csv(timestamps_filename, timestamps_dict);
+    }
+
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
       freeTimers(timers_);
       printMLUPS("core", timers_[TimerEnum::LBMSolver]);
       printMLUPS("total", timers_[TimerEnum::MainLoop]);
     }
+
     mpi_conf_.finalize();
   }
 
@@ -146,6 +155,10 @@ private:
 
     if(json_data["Settings"].contains("beta") ) {
       conf_.settings_.beta_ = json_data["Settings"]["beta"].get<double>();
+    }
+
+    if(json_data["Settings"].contains("use_time_stamps") ) {
+      conf_.settings_.use_time_stamps_ = json_data["Settings"]["use_time_stamps"].get<bool>();
     }
 
     // IO settings

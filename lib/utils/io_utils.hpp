@@ -43,7 +43,16 @@ namespace Impl {
       auto key = d.first;
       auto value = d.second;
       if(index) file << key << separator;
- 
+
+      for(std::size_t i=0; i<value.size(); i++) {
+        if(i != value.size()-1) {
+          file << value[i] << separator;
+        } else {
+          file << value[i] << std::endl;
+        }
+      }
+
+      /*
       for(auto v: value) {
         if(v != value.back()) {
           file << v << separator;
@@ -51,6 +60,7 @@ namespace Impl {
           file << v << std::endl;
         }
       }
+      */
     }
   }
 
