@@ -36,11 +36,13 @@ public:
     // Initialize MPI
     mpi_conf_.initialize(argc, argv);
 
-    // Declare timers
-    defineTimers(timers_);
-
     // Initialize Configuration from the input json file
     initialize_conf(filename, conf_);
+
+    // Declare timers
+    defineTimers(timers_, conf_.settings_.use_time_stamps_);
+    mpi_conf_.fence();
+    resetTimers(timers_); // In order to share the initial time among all the timers
 
     // Allocate attributes
     data_vars_ = std::move( std::unique_ptr<DataVars>(new DataVars(conf_)) );
@@ -89,6 +91,12 @@ public:
     const std::string filename = performance_dir + "/" + "elapsed_time_rank" + std::to_string(mpi_conf_.rank()) + ".csv";
     auto performance_dict = timersToDict(timers_);
     Impl::to_csv(filename, performance_dict);
+
+    if(conf_.settings_.use_time_stamps_) {
+      const std::string timestamps_filename = performance_dir + "/" + "time_stamps_rank" + std::to_string(mpi_conf_.rank()) + ".csv";
+      auto timestamps_dict = timeStampsToDict(timers_);
+      Impl::to_csv(timestamps_filename, timestamps_dict);
+    }
 
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
@@ -155,6 +163,10 @@ private:
 
     if(json_data["Settings"].contains("is_bcast_on_host") ) {
       conf_.settings_.is_bcast_on_host_ = json_data["Settings"]["is_bcast_on_host"].get<bool>();
+    }
+
+    if(json_data["Settings"].contains("use_time_stamps") ) {
+      conf_.settings_.use_time_stamps_ = json_data["Settings"]["use_time_stamps"].get<bool>();
     }
 
     // IO settings
