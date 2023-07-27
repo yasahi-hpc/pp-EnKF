@@ -4,6 +4,8 @@
 #include <string>
 #include <cstring>
 #include <fstream>
+#include <vector>
+#include <map>
 #include <cassert>
 
 namespace Impl {
