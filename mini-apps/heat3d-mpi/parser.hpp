@@ -16,6 +16,8 @@ struct Parser {
   int teams_ = 1;
   int device_ = 0;
   int ngpu_ = 1;
+  bool is_async_ = false;
+  bool use_time_stamps_ = false;
 
   Parser() = delete;
   Parser(int argc, char** argv) {
@@ -62,6 +64,18 @@ struct Parser {
 
       if((strcmp(argv[i], "-freq_diag") == 0) || (strcmp(argv[i], "--freq_diag") == 0)) {
         freq_diag_ = atoi(argv[++i]);
+        continue;
+      }
+
+      if((strcmp(argv[i], "-is_async") == 0) || (strcmp(argv[i], "--is_async") == 0)) {
+        int is_async = atoi(argv[++i]);
+        is_async_ = is_async >= 1;
+        continue;
+      }
+
+      if((strcmp(argv[i], "-use_time_stamps") == 0) || (strcmp(argv[i], "--use_time_stamps") == 0)) {
+        int use_time_stamps = atoi(argv[++i]);
+        use_time_stamps_ = use_time_stamps >= 1;
         continue;
       }
 

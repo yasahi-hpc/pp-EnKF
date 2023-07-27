@@ -140,7 +140,7 @@ public:
     ::MPI_Comm_size(MPI_COMM_WORLD, &size_);
     ::MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 
-    setDevice( rank_ );
+    //setDevice( rank_ );
     setTopology();
   }
   ~Comm() {}

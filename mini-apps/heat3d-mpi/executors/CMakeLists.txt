@@ -1,8 +1,5 @@
-add_executable(heat3d-mpi-exec heat3D.cpp)
+add_executable(heat3d-mpi-executors heat3D.cpp)
 
 find_package(MPI REQUIRED COMPONENTS CXX)
-target_link_libraries(heat3d-mpi-exec PUBLIC Threads::Threads STDEXEC::stdexec STDEXEC::nvexec MPI::MPI_CXX)
-target_compile_features(heat3d-mpi-exec PUBLIC cxx_std_20)
-
-# Enable macro
-target_compile_definitions(heat3d-mpi-exec PUBLIC $<$<BOOL:${OVERLAP}>: OVERLAP>)
+target_link_libraries(heat3d-mpi-executors PUBLIC Threads::Threads STDEXEC::stdexec STDEXEC::nvexec MPI::MPI_CXX math_lib)
+target_compile_features(heat3d-mpi-executors PUBLIC cxx_std_20)

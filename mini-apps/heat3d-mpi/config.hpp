@@ -27,13 +27,19 @@ struct Config {
   const double Kappa_ = 1.0;
   double dt_;
 
+  // Optimization and Performance measurements
+  bool is_async_ = false; // In order to enable overlapping, in senders/receivers version
+  bool use_time_stamps_ = false; // for detailed analysis
+
   Config() = delete;
   Config(std::vector<std::size_t> shape,
          std::vector<int> topology,
          std::vector<int> cart_rank,
          std::size_t nbiter,
-         std::size_t freq_diag)
-    : nbiter_(nbiter), freq_diag_(freq_diag) {
+         std::size_t freq_diag,
+         bool is_async=false,
+         bool use_time_stamps=false)
+    : nbiter_(nbiter), freq_diag_(freq_diag), is_async_(is_async), use_time_stamps_(use_time_stamps) {
 
     nx_ = shape[0], ny_ = shape[1], nz_ = shape[2];
     nxh_ = nx_ + 2*halo_width_, nyh_ = ny_ + 2*halo_width_, nzh_ = nz_ + 2*halo_width_;
