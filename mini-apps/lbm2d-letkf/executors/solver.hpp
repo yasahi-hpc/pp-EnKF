@@ -100,11 +100,11 @@ public:
 
     if(mpi_conf_.is_master()) {
       printTimers(timers_);
-      freeTimers(timers_);
       printMLUPS("core", timers_[TimerEnum::LBMSolver]);
       printMLUPS("total", timers_[TimerEnum::MainLoop]);
     }
 
+    freeTimers(timers_);
     mpi_conf_.finalize();
   }
 
@@ -182,13 +182,16 @@ private:
     }
 
     // Saving json file to output directory
-    const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
-    const std::string performance_dir = out_dir + "/" + "performance";
-    Impl::mkdirs(out_dir, 0755);
-    Impl::mkdirs(performance_dir, 0755);
+    if(mpi_conf_.is_master()) {
+      const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
+      const std::string performance_dir = out_dir + "/" + "performance";
+      Impl::mkdirs(out_dir, 0755);
+      Impl::mkdirs(performance_dir, 0755);
 
-    std::ofstream o(out_dir + "/input.json");
-    o << std::setw(4) << json_data << std::endl;
+      std::ofstream o(out_dir + "/input.json");
+      o << std::setw(4) << json_data << std::endl;
+    }
+    mpi_conf_.fence();
 
     conf_.settings_.is_reference_ = (sim_type_ == "nature");
 
