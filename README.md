@@ -1,6 +1,6 @@
 # Performance portable Ensemble Kalman Filter (pp-LETKF)
 
-[![CI](https://github.com/yasahi-hpc/executor_testing/actions/workflows/cmake.yml/badge.svg)](https://github.com/yasahi-hpc/executor_testing/actions)
+[![CI](https://github.com/yasahi-hpc/executor_testing/actions/workflows/test_on_wisteria.yml/badge.svg)](https://github.com/yasahi-hpc/executor_testing/actions)
 
 <div style style=”line-height: 25%” align="center">
 <h3> Data assimilation with LETKF on 2D turbulence </h3>
