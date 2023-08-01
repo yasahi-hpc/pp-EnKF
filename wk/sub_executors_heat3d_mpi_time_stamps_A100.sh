@@ -4,7 +4,7 @@
 #PJM -L "elapse=10:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=2
+#PJM --mpi proc=4
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -35,7 +35,12 @@ export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
-    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
-    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1 --is_async 1
+#mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
+#    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1
+#mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
+#    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1 --is_async 1
+
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
+    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 4 --nx 1024 --ny 1024 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
+    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 4 --nx 1024 --ny 1024 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1 --is_async 1
