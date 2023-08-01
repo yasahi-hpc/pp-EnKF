@@ -1,10 +1,10 @@
-#!/bin/bash -e
+#!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
 #PJM -L "elapse=10:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=4
+#PJM --mpi proc=2
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -21,12 +21,12 @@ module list
 
 # Need GPUs to build the code appropriately
 # So compile inside a batch job, wherein GPUs are visible
-if [ ! -d "../build_CUDA" ]
+if [ ! -d "../build" ]
 then
     cd ../
-    rm -rf build_CUDA
-    mkdir build_CUDA && cd build_CUDA
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DBUILD_TESTING=ON ..
+    rm -rf build
+    mkdir build && cd build
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA ..
     cmake --build . -j 8
     cd ../wk/
 fi
@@ -35,7 +35,5 @@ export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
-../build_CUDA/tests/executors/google-tests-executors
-../build_CUDA/tests/stdpar/google-tests-stdpar
-
-touch success_CUDA
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
+    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0

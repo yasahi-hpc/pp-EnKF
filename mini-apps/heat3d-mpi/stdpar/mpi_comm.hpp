@@ -7,6 +7,7 @@
 #include <mpi.h>
 #include "../types.hpp"
 #include "../utils.hpp"
+#include "../timer.hpp"
 #include "functors.hpp"
 
 constexpr int UP     = 0;
@@ -223,7 +224,8 @@ public:
   }
 
   template <class View>
-  void exchangeHalos(View& u) {
+  void exchangeHalos(View& u, std::vector<Timer*> &timers) {
+    bool use_timer = timers.size() > 0;
     // Define submdspans for halo regions
     const std::pair inner_x(1, u.extent(0) - 1);
     const std::pair inner_y(1, u.extent(1) - 1);
@@ -237,9 +239,17 @@ public:
       auto ux_recv_left  = submdspan(u, 0, inner_y, inner_z);
       auto ux_recv_right = submdspan(u, u.extent(0) - 1, inner_y, inner_z);
 
+      if(use_timer) timers[HaloPack]->begin();
       pack_(send_buffer(i), ux_send_left, ux_send_right);
+      if(use_timer) timers[HaloPack]->end();
+
+      if(use_timer) timers[HaloComm]->begin();
       commP2P_(recv_buffer(i), send_buffer(i));
+      if(use_timer) timers[HaloComm]->end();
+
+      if(use_timer) timers[HaloUnpack]->begin();
       unpack_(ux_recv_left, ux_recv_right, recv_buffer(i));
+      if(use_timer) timers[HaloUnpack]->end();
     }
 
     // Exchange in y direction
@@ -250,9 +260,17 @@ public:
       auto uy_recv_left  = submdspan(u, inner_x, 0, inner_z);
       auto uy_recv_right = submdspan(u, inner_x, u.extent(1) - 1, inner_z);
 
+      if(use_timer) timers[HaloPack]->begin();
       pack_(send_buffer(i), uy_send_left, uy_send_right);
+      if(use_timer) timers[HaloPack]->end();
+
+      if(use_timer) timers[HaloComm]->begin();
       commP2P_(recv_buffer(i), send_buffer(i));
+      if(use_timer) timers[HaloComm]->end();
+
+      if(use_timer) timers[HaloUnpack]->begin();
       unpack_(uy_recv_left, uy_recv_right, recv_buffer(i));
+      if(use_timer) timers[HaloUnpack]->end();
     }
 
     // Exchange in z direction
@@ -263,9 +281,17 @@ public:
       auto uz_recv_left  = submdspan(u, inner_x, inner_y, 0);
       auto uz_recv_right = submdspan(u, inner_x, inner_y, u.extent(2) - 1);
 
+      if(use_timer) timers[HaloPack]->begin();
       pack_(send_buffer(i), uz_send_left, uz_send_right);
+      if(use_timer) timers[HaloPack]->end();
+
+      if(use_timer) timers[HaloComm]->begin();
       commP2P_(recv_buffer(i), send_buffer(i));
+      if(use_timer) timers[HaloComm]->end();
+
+      if(use_timer) timers[HaloUnpack]->begin();
       unpack_(uz_recv_left, uz_recv_right, recv_buffer(i));
+      if(use_timer) timers[HaloUnpack]->end();
     }
   }
 

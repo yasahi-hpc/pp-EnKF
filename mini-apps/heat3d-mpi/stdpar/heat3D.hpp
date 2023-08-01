@@ -36,7 +36,9 @@ void testComm(const Config& conf,
     }
   }
 
-  comm.exchangeHalos(u);
+  // Boundary conditions
+  std::vector<Timer*> timers;
+  comm.exchangeHalos(u, timers);
 
   auto print_error = [&](std::size_t ix, std::size_t iy, std::size_t iz,
                          std::size_t gix, std::size_t giy, std::size_t giz) {
@@ -126,7 +128,8 @@ void initialize(const Config& conf,
 template <typename RealType>
 void solve(const Config& conf,
            Comm& comm,
-           Variable<RealType>& variables) {
+           Variable<RealType>& variables,
+           std::vector<Timer*>& timers) {
   const std::size_t n = conf.nx_ * conf.ny_ * conf.nz_;
 
   auto u = variables.u();
@@ -136,11 +139,19 @@ void solve(const Config& conf,
   const auto z_mask = variables.z_mask();
 
   for(std::size_t i=0; i<conf.nbiter_; i++) {
-    comm.exchangeHalos(u);
+    timers[MainLoop]->begin();
+
+    comm.exchangeHalos(u, timers);
+
+    timers[Heat]->begin();
     std::for_each_n(std::execution::par_unseq,
                     std::views::iota(0).begin(), n,
                     heat3d_functor(conf, x_mask, y_mask, z_mask, u, un));
+    timers[Heat]->end();
+
     std::swap(u, un);
+
+    timers[MainLoop]->end();
   }
 }
 

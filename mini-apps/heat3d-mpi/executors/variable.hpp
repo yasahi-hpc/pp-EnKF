@@ -37,7 +37,7 @@ public:
     y_mask_.resize(conf.nyh_, 1.0);
     z_mask_.resize(conf.nzh_, 1.0);
 
-    #if defined(OVERLAP)
+    if(conf.is_async_) {
       thrust::host_vector<RealType> x_mask = x_mask_;
       thrust::host_vector<RealType> y_mask = y_mask_;
       thrust::host_vector<RealType> z_mask = z_mask_;
@@ -49,7 +49,7 @@ public:
       x_mask_ = x_mask;
       y_mask_ = y_mask;
       z_mask_ = z_mask;
-    #endif
+    }
   }
 
   // Getters

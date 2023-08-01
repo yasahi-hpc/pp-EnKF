@@ -8,6 +8,7 @@
 #include "mpi_comm.hpp"
 #include "../config.hpp"
 #include "../types.hpp"
+#include "../timer.hpp"
 #include "grid.hpp"
 #include "variable.hpp"
 #include "functors.hpp"
@@ -47,7 +48,8 @@ template <class Scheduler, typename RealType>
 void solve(const Config& conf,
            Scheduler&& scheduler,
            Comm& comm,
-           Variable<RealType>& variables) {
+           Variable<RealType>& variables,
+           std::vector<Timer*>& timers) {
   const std::size_t n = conf.nx_ * conf.ny_ * conf.nz_;
 
   auto u = variables.u();
@@ -56,30 +58,60 @@ void solve(const Config& conf,
   auto y_mask = variables.y_mask();
   auto z_mask = variables.z_mask();
 
-  #if defined(OVERLAP)
+  if(conf.is_async_) {
+    // Overlapping
     for(std::size_t i=0; i<conf.nbiter_; i++) {
+      timers[MainLoop]->begin();
+      timers[HaloPack]->begin();
       comm.pack(scheduler, u);
+      timers[HaloPack]->end();
 
       auto inner_update = stdexec::when_all(
         stdexec::just() | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) ),
-        stdexec::just() | stdexec::then( [&]{ comm.commP2P(); } )
+        stdexec::just() | stdexec::then( [&]{ timers[HaloComm]->begin();
+                                              comm.commP2P(); 
+                                              timers[HaloComm]->end();
+                                            } )
       );
 
+      timers[Heat]->begin();
       stdexec::sync_wait( std::move(inner_update) );
+      timers[Heat]->end();
 
+      timers[HaloUnpack]->begin();
       comm.boundaryUpdate(conf, scheduler, un);
+      timers[HaloUnpack]->end();
+
       std::swap(u, un);
+      timers[MainLoop]->end();
     }
-  #else
+  } else {
     for(std::size_t i=0; i<conf.nbiter_; i++) {
-      comm.exchangeHalos(scheduler, u);
+      timers[MainLoop]->begin();
+
+      timers[HaloPack]->begin();
+      comm.pack(scheduler, u);
+      timers[HaloPack]->end();
+
+      timers[HaloComm]->begin();
+      comm.commP2P();
+      timers[HaloComm]->end();
+
+      timers[HaloUnpack]->begin();
+      comm.unpack(scheduler, u);
+      timers[HaloUnpack]->end();
 
       auto update = stdexec::just()
         | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) )
         | stdexec::then( [&]{ std::swap(u, un); } );
+
+      timers[Heat]->begin();
       stdexec::sync_wait( std::move(update) );
+      timers[Heat]->end();
+
+      timers[MainLoop]->end();
     }
-  #endif
+  }
 }
 
 template <class Scheduler, typename RealType>
@@ -130,14 +162,14 @@ void finalize(const Config& conf,
 
 static void report_performance(const Config& conf, double seconds) {
   const std::size_t n = conf.nx_ * conf.ny_ * conf.nz_;
-  const double GBytes = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 2 * sizeof(double) / 1.e9;
+  double GBytes = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 2 * sizeof(double) / 1.e9;
 
   // 9 Flop per iteration
-  const double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 9 / 1.e9;
+  double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 9 / 1.e9;
 
-  #if defined(OVERLAP)
+  if(conf.is_async_) {
     std::cout << "Communication and Computation Overlap" << std::endl;
-  #endif
+  }
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;
   std::cout << "Bandwidth: " << GBytes / seconds << " [GB/s]" << std::endl;
   std::cout << "Flops: " << GFlops / seconds << " [GFlops]" << std::endl;
