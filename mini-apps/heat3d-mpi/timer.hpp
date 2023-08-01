@@ -84,7 +84,7 @@ static void defineTimers(std::vector<Timer*> &timers, bool use_time_stamps=false
   // Set timers
   timers.resize(Nb_timers);
   timers[TimerEnum::Total]      = new Timer("total");
-  timers[TimerEnum::MainLoop]   = new Timer("MainLoop");
+  timers[TimerEnum::MainLoop]   = new Timer("MainLoop", use_time_stamps);
   timers[TimerEnum::Heat]       = new Timer("Heat", use_time_stamps);
   timers[TimerEnum::HaloPack]   = new Timer("HaloPack", use_time_stamps);
   timers[TimerEnum::HaloUnpack] = new Timer("HaloUnpack", use_time_stamps);

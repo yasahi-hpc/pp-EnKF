@@ -1,5 +1,4 @@
 #include <chrono>
-#include "nvexec/stream_context.cuh"
 #include <utils/string_utils.hpp>
 #include <utils/system_utils.hpp>
 #include <utils/io_utils.hpp>
@@ -9,6 +8,12 @@
 #include "mpi_comm.hpp"
 #include "variable.hpp"
 #include "grid.hpp"
+
+#if defined(ENABLE_OPENMP)
+  #include <exec/static_thread_pool.hpp>
+#else
+  #include "nvexec/stream_context.cuh"
+#endif
 
 int main(int argc, char *argv[]) {
   Parser parser(argc, argv);
