@@ -36,3 +36,5 @@ export UCX_IB_GPU_DIRECT_RDMA=no
 
 ../build_OPENMP/tests/executors/google-tests-executors
 ../build_OPENMP/tests/stdpar/google-tests-stdpar
+
+touch success_OPENMP

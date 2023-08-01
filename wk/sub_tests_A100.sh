@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
 #PJM -L "elapse=10:00"
@@ -37,3 +37,5 @@ export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
 ../build_CUDA/tests/executors/google-tests-executors
 ../build_CUDA/tests/stdpar/google-tests-stdpar
+
+touch success_CUDA
