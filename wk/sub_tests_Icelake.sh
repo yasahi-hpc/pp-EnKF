@@ -21,19 +21,18 @@ module list
 
 # Need GPUs to build the code appropriately
 # So compile inside a batch job, wherein GPUs are visible
-if [ ! -d "../build_CUDA" ]
+if [ ! -d "../build_OPENMP" ]
 then
     cd ../
-    rm -rf build_CUDA
-    mkdir build_CUDA && cd build_CUDA
-    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=CUDA -DBUILD_TESTING=ON ..
+    rm -rf build_OPENMP
+    mkdir build_OPENMP && cd build_OPENMP
+    cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=OPENMP -DBUILD_TESTING=ON ..
     cmake --build . -j 8
     cd ../wk/
 fi
 
 export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
-export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
-../build_CUDA/tests/executors/google-tests-executors
-../build_CUDA/tests/stdpar/google-tests-stdpar
+../build_OPENMP/tests/executors/google-tests-executors
+../build_OPENMP/tests/stdpar/google-tests-stdpar

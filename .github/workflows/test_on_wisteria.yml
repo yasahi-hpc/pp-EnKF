@@ -1,0 +1,38 @@
+# test run on Wisteria (self-hosted)
+name: CI @ Wisteria
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize]
+
+jobs:
+  CUDA:
+    # memo: runs-on selects host whose every label mathces with the given list
+    runs-on: wisteria
+    steps:
+    - name: Cechkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Update submodules
+      run: git submodule update --remote --recursive
+
+    - name: Build and Test
+      run: cd wk; ./test_CUDA_wisteria.sh
+
+  OPENMP:
+    # memo: runs-on selects host whose every label mathces with the given list
+    runs-on: wisteria
+    steps:
+    - name: Cechkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Update submodules
+      run: git submodule update --remote --recursive
+
+    - name: Build and Test
+      run: cd wk; ./test_OPENMP_wisteria.sh
