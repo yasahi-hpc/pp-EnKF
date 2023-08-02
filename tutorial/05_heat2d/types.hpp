@@ -1,7 +1,6 @@
 #ifndef __TYPES_HPP__
 #define __TYPES_HPP__
 
-#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <experimental/mdspan>
 
@@ -11,7 +10,7 @@ namespace stdex = std::experimental;
 #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
   using default_layout = stdex::layout_left;
 #else
-  using default_layout = stdex::layout_right;
+  using default_layout = stdex::layout_left;
 #endif
 
 using RealView1D = stdex::mdspan<double, stdex::dextents<std::size_t, 1>, default_layout>;

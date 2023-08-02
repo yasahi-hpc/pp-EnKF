@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <vector>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <complex>
 #include <mpi.h>
@@ -45,7 +46,11 @@ template <typename RealType>
 struct Halo {
   using RealView2D = View2D<RealType>;
   using Shpae2D = shape_type<2>;
-  using Vector = thrust::device_vector<RealType>;
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
 
 private:
   Vector left_, right_;
@@ -393,10 +398,10 @@ private:
 
       MPI_Waitall( 4, request, status );
     } else {
-      thrust::device_vector<double>& send_left_vector  = send.left_vector(); 
-      thrust::device_vector<double>& send_right_vector = send.right_vector(); 
-      thrust::device_vector<double>& recv_left_vector  = recv.left_vector(); 
-      thrust::device_vector<double>& recv_right_vector = recv.right_vector(); 
+      auto& send_left_vector  = send.left_vector();
+      auto& send_right_vector = send.right_vector();
+      auto& recv_left_vector  = recv.left_vector();
+      auto& recv_right_vector = recv.right_vector();
 
       thrust::swap( send_left_vector,  recv_right_vector );
       thrust::swap( send_right_vector, recv_left_vector  );

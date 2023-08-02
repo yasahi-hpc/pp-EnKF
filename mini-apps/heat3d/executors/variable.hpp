@@ -1,6 +1,7 @@
 #ifndef __VARIABLE_HPP__
 #define __VARIABLE_HPP__
 
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include "../types.hpp"
 #include "../config.hpp"
@@ -10,7 +11,13 @@ struct Variable {
 private:
   using RealView3D = View3D<RealType>;
   using Shape3D = shape_type<3>;
-  thrust::device_vector<RealType> u_, un_;
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
+
+  Vector u_, un_;
   Shape3D extents3D_;
 
 public:

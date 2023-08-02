@@ -3,14 +3,22 @@
 #include <algorithm>
 #include <numeric>
 #include <stdexec/execution.hpp>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/execution_policy.h>
+#include <exec/static_thread_pool.hpp>
 #include "nvexec/stream_context.cuh"
-#include "exec/on.hpp"
+#include <exec/on.hpp>
 #include "stream.hpp"
 
 using counting_iterator = thrust::counting_iterator<std::size_t>;
+
+#if defined(ENABLE_OPENMP)
+  using Vector = thrust::host_vector<double>;
+#else
+  using Vector = thrust::device_vector<double>;
+#endif
 
 constexpr std::size_t ARRAY_SIZE = 128*128*128*128;
 constexpr std::size_t nbiter = 100;
@@ -60,9 +68,9 @@ void average(const std::size_t n, UnarayOperation const unary_op, OutputType &re
 
 template <typename RealType>
 void checkSolution(const std::size_t nbiter,
-                   const thrust::device_vector<RealType>& a,
-                   const thrust::device_vector<RealType>& b,
-                   const thrust::device_vector<RealType>& c,
+                   const Vector& a,
+                   const Vector& b,
+                   const Vector& c,
                    const RealType& sum) {
   // Generate correct solution
   RealType gold_A = start_A;
@@ -128,14 +136,19 @@ void checkSolution(const std::size_t nbiter,
 };
 
 int main(int argc, char *argv[]) {
-  // Declare a CUDA stream
-  nvexec::stream_context stream_ctx{};
-  auto scheduler = stream_ctx.get_scheduler();
+  #if defined(ENABLE_OPENMP)
+    exec::static_thread_pool pool{std::thread::hardware_concurrency()};
+    auto scheduler = pool.get_scheduler();
+  #else
+    // Declare a CUDA stream
+    nvexec::stream_context stream_ctx{};
+    auto scheduler = stream_ctx.get_scheduler();
+  #endif
 
   // Declare device vectors
-  thrust::device_vector<double> a(ARRAY_SIZE);
-  thrust::device_vector<double> b(ARRAY_SIZE);
-  thrust::device_vector<double> c(ARRAY_SIZE);
+  Vector a(ARRAY_SIZE);
+  Vector b(ARRAY_SIZE);
+  Vector c(ARRAY_SIZE);
   double* ptr_a = (double *)thrust::raw_pointer_cast(a.data());
   double* ptr_b = (double *)thrust::raw_pointer_cast(b.data());
   double sum = 0.0;
@@ -197,6 +210,12 @@ int main(int argc, char *argv[]) {
   }
 
   checkSolution(nbiter, a, b, c, sum);
+
+  #if defined(ENABLE_OPENMP)
+    std::cout << "OpenMP backend" << std::endl;
+  #else
+    std::cout << "CUDA backend" << std::endl;
+  #endif
 
   std::cout
     << "function" << csv_separator

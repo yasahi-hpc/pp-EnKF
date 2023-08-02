@@ -2,19 +2,24 @@
 #define __GRID_HPP__
 
 #include <cmath>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/sequence.h>
 #include "../types.hpp"
 #include "../config.hpp"
 
 template <typename ScalarType>
-inline thrust::device_vector<ScalarType> arange(const ScalarType start,
-                                                const ScalarType stop,
-                                                const ScalarType step=1
-                                               ) {
+inline auto arange(const ScalarType start,
+                   const ScalarType stop,
+                   const ScalarType step=1
+                  ) {
   const size_t length = ceil((stop - start) / step);
 
-  thrust::device_vector<ScalarType> result(length);
+  #if defined(ENABLE_OPENMP)
+    thrust::host_vector<ScalarType> result(length);
+  #else
+    thrust::device_vector<ScalarType> result(length);
+  #endif
 
   ScalarType delta = (stop - start) / length;
   thrust::sequence(result.begin(), result.end(), start, delta);
@@ -27,7 +32,11 @@ struct Grid {
   using Shape1D = shape_type<1>;
 
 private:
-  thrust::device_vector<RealType> x_, y_, z_;
+  #if defined(ENABLE_OPENMP)
+    thrust::host_vector<RealType> x_, y_, z_;
+  #else
+    thrust::device_vector<RealType> x_, y_, z_;
+  #endif
   Shape1D extents_nx_, extents_ny_, extents_nz_;
 
 public:

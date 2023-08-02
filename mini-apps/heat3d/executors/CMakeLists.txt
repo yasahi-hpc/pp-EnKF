@@ -1,3 +1,10 @@
 add_executable(heat3d-exec heat3D.cpp)
 target_link_libraries(heat3d-exec PUBLIC Threads::Threads STDEXEC::stdexec STDEXEC::nvexec)
 target_compile_features(heat3d-exec PUBLIC cxx_std_20)
+
+set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+if(BACKEND STREQUAL "OPENMP")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(heat3d-exec PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(heat3d-exec PUBLIC ENABLE_OPENMP THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+endif()
