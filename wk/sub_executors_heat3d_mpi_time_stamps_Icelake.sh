@@ -36,10 +36,14 @@ export UCX_IB_GPU_DIRECT_RDMA=no
 export OMP_NUM_THREADS=36
 export OMP_PROC_BIND=true
 
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --map-by ppr:1:socket:PE=${OMP_NUM_THREADS} \
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC \
     ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 100 --freq_diag 0 --use_time_stamps 1
-mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --map-by ppr:1:socket:PE=${OMP_NUM_THREADS} \
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC \
     ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 100 --freq_diag 0 --use_time_stamps 1 --is_async 1
+##mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --map-by ppr:1:socket:PE=${OMP_NUM_THREADS} \
+##    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 100 --freq_diag 0 --use_time_stamps 1
+##mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --map-by ppr:1:socket:PE=${OMP_NUM_THREADS} \
+##    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 100 --freq_diag 0 --use_time_stamps 1 --is_async 1
 
 #mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 4 \
 #    ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 4 --nx 1024 --ny 1024 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1
