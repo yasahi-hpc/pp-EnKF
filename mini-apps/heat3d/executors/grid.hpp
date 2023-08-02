@@ -3,18 +3,23 @@
 
 #include <cmath>
 #include <thrust/sequence.h>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include "../types.hpp"
 #include "../config.hpp"
 
 template <typename ScalarType>
-inline thrust::device_vector<ScalarType> arange(const ScalarType start,
-                                                const ScalarType stop,
-                                                const ScalarType step=1
-                                               ) {
+inline auto arange(const ScalarType start,
+                   const ScalarType stop,
+                   const ScalarType step=1
+                  ) {
   const size_t length = ceil((stop - start) / step);
 
-  thrust::device_vector<ScalarType> result(length);
+  #if defined(ENABLE_OPENMP)
+    thrust::host_vector<ScalarType> result(length);
+  #else
+    thrust::device_vector<ScalarType> result(length);
+  #endif
 
   ScalarType delta = (stop - start) / length;
   thrust::sequence(result.begin(), result.end(), start, delta);
@@ -26,8 +31,14 @@ struct Grid {
   using RealView1D = View1D<RealType>;
   using Shape1D = shape_type<1>;
 
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
+
 private:
-  thrust::device_vector<RealType> x_, y_, z_;
+  Vector x_, y_, z_;
   Shape1D extents_nx_, extents_ny_, extents_nz_;
 
 public:

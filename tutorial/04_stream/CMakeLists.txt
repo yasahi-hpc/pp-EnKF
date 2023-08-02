@@ -1,3 +1,10 @@
 add_executable(04_stream_test stream.cpp)
 target_link_libraries(04_stream_test PUBLIC Threads::Threads STDEXEC::stdexec STDEXEC::nvexec)
 target_compile_features(04_stream_test PUBLIC cxx_std_20)
+
+set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+if(BACKEND STREQUAL "OPENMP")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(04_stream_test PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(04_stream_test PUBLIC ENABLE_OPENMP THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+endif()

@@ -1,11 +1,17 @@
 #ifndef __STREAM_HPP__
 #define __STREAM_HPP__
 
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <experimental/mdspan>
 
 template <typename RealType>
 struct init_functor{
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
   const RealType start_A_;
   const RealType start_B_;
   const RealType start_C_;
@@ -16,9 +22,9 @@ struct init_functor{
   init_functor(const RealType start_A,
                const RealType start_B,
                const RealType start_C,
-               thrust::device_vector<RealType>& a,
-               thrust::device_vector<RealType>& b,
-               thrust::device_vector<RealType>& c) : start_A_(start_A), start_B_(start_B), start_C_(start_C) {
+               Vector& a,
+               Vector& b,
+               Vector& c) : start_A_(start_A), start_B_(start_B), start_C_(start_C) {
     ptr_a_ = (RealType *)thrust::raw_pointer_cast(a.data());
     ptr_b_ = (RealType *)thrust::raw_pointer_cast(b.data());
     ptr_c_ = (RealType *)thrust::raw_pointer_cast(c.data());
@@ -34,11 +40,16 @@ struct init_functor{
 
 template <typename RealType>
 struct copy_functor{
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
   RealType *ptr_a_;
   RealType *ptr_c_;
 
-  copy_functor(const thrust::device_vector<RealType>& a,
-               thrust::device_vector<RealType>& c) {
+  copy_functor(const Vector& a,
+               Vector& c) {
     ptr_a_ = (RealType *)thrust::raw_pointer_cast(a.data());
     ptr_c_ = (RealType *)thrust::raw_pointer_cast(c.data());
   }
@@ -51,13 +62,18 @@ struct copy_functor{
 
 template <typename RealType>
 struct mul_functor{
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
   const RealType scalar_;
   RealType *ptr_b_;
   RealType *ptr_c_;
 
   mul_functor(const RealType scalar,
-              const thrust::device_vector<RealType>& b,
-              thrust::device_vector<RealType>& c) : scalar_(scalar) {
+              const Vector& b,
+              Vector& c) : scalar_(scalar) {
     ptr_b_ = (RealType *)thrust::raw_pointer_cast(b.data());
     ptr_c_ = (RealType *)thrust::raw_pointer_cast(c.data());
   }
@@ -70,13 +86,18 @@ struct mul_functor{
 
 template <typename RealType>
 struct add_functor{
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
   RealType *ptr_a_;
   RealType *ptr_b_;
   RealType *ptr_c_;
 
-  add_functor(const thrust::device_vector<RealType>& a,
-              const thrust::device_vector<RealType>& b,
-              thrust::device_vector<RealType>& c) {
+  add_functor(const Vector& a,
+              const Vector& b,
+              Vector& c) {
     ptr_a_ = (RealType *)thrust::raw_pointer_cast(a.data());
     ptr_b_ = (RealType *)thrust::raw_pointer_cast(b.data());
     ptr_c_ = (RealType *)thrust::raw_pointer_cast(c.data());
@@ -90,15 +111,20 @@ struct add_functor{
 
 template <typename RealType>
 struct triad_functor{
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
   const RealType scalar_;
   RealType *ptr_a_;
   RealType *ptr_b_;
   RealType *ptr_c_;
 
   triad_functor(const RealType scalar,
-                const thrust::device_vector<RealType>& a,
-                const thrust::device_vector<RealType>& b,
-                thrust::device_vector<RealType>& c) : scalar_(scalar) {
+                const Vector& a,
+                const Vector& b,
+                Vector& c) : scalar_(scalar) {
     ptr_a_ = (RealType *)thrust::raw_pointer_cast(a.data());
     ptr_b_ = (RealType *)thrust::raw_pointer_cast(b.data());
     ptr_c_ = (RealType *)thrust::raw_pointer_cast(c.data());

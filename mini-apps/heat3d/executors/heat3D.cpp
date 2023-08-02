@@ -1,10 +1,15 @@
 #include <chrono>
-#include "nvexec/stream_context.cuh"
 #include "../config.hpp"
 #include "../parser.hpp"
 #include "heat3D.hpp"
 #include "variable.hpp"
 #include "grid.hpp"
+
+#if defined(ENABLE_OPENMP)
+  #include <exec/static_thread_pool.hpp>
+#else
+  #include "nvexec/stream_context.cuh"
+#endif
 
 int main(int argc, char *argv[]) {
   Parser parser(argc, argv);
@@ -18,9 +23,13 @@ int main(int argc, char *argv[]) {
   Grid<double> grid(conf);
   Variable<double> variables(conf);
 
-  // Declare a CUDA stream
-  nvexec::stream_context stream_ctx{};
-  auto scheduler = stream_ctx.get_scheduler();
+  #if defined(ENABLE_OPENMP)
+    exec::static_thread_pool pool{std::thread::hardware_concurrency()};
+    auto scheduler = pool.get_scheduler();
+  #else
+    nvexec::stream_context stream_ctx{};
+    auto scheduler = stream_ctx.get_scheduler();
+  #endif
 
   initialize(conf, grid, scheduler, variables);
   auto start = std::chrono::high_resolution_clock::now();

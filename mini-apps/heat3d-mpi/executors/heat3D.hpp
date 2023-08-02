@@ -167,6 +167,12 @@ static void report_performance(const Config& conf, double seconds) {
   // 9 Flop per iteration
   double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 9 / 1.e9;
 
+  #if defined(ENABLE_OPENMP)
+    std::cout << "OpenMP backend with " << std::thread::hardware_concurrency() << " threads" << std::endl;
+  #else
+    std::cout << "CUDA backend" << std::endl;
+  #endif
+
   if(conf.is_async_) {
     std::cout << "Communication and Computation Overlap" << std::endl;
   }

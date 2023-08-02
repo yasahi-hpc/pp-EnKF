@@ -14,8 +14,14 @@ private:
 
   using Shape1D = shape_type<1>;
   using Shape3D = shape_type<3>;
-  thrust::device_vector<RealType> u_, un_;
-  thrust::device_vector<RealType> x_mask_, y_mask_, z_mask_;
+
+  #if defined(ENABLE_OPENMP)
+    using Vector = thrust::host_vector<RealType>;
+  #else
+    using Vector = thrust::device_vector<RealType>;
+  #endif
+  Vector u_, un_;
+  Vector x_mask_, y_mask_, z_mask_;
   Shape1D extents_x_, extents_y_, extents_z_;
   Shape3D extents3D_;
 

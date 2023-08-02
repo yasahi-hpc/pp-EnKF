@@ -222,6 +222,12 @@ static void report_performance(const Config& conf, double seconds) {
   // 7 Flop per iteration
   const double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 7 / 1.e9;
 
+  #if defined(ENABLE_OPENMP)
+    std::cout << "OpenMP backend with " << std::thread::hardware_concurrency() << " threads" << std::endl;
+  #else
+    std::cout << "CUDA backend" << std::endl;
+  #endif
+
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;
   std::cout << "Bandwidth: " << GBytes / seconds << " [GB/s]" << std::endl;
   std::cout << "Flops: " << GFlops / seconds << " [GFlops]" << std::endl;
