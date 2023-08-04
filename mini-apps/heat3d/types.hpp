@@ -14,7 +14,7 @@ namespace stdex = std::experimental;
 #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
   using default_layout = stdex::layout_left;
 #else
-  using default_layout = stdex::layout_right;
+  using default_layout = stdex::layout_left;
 #endif
 
 template <typename ElementType>

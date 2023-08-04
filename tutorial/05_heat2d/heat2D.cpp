@@ -4,6 +4,7 @@
 #include <numeric>
 #include <array>
 #include <stdexec/execution.hpp>
+#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/execution_policy.h>
@@ -15,7 +16,11 @@
 #include "exec/on.hpp"
 #include "heat2D.hpp"
 
-using Vector = thrust::device_vector<double>;
+#if defined(ENABLE_OPENMP)
+  using Vector = thrust::host_vector<double>;
+#else
+  using Vector = thrust::device_vector<double>;
+#endif
 
 int main(int argc, char *argv[]) {
   // Set configuration

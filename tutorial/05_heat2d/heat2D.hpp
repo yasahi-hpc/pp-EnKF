@@ -163,7 +163,7 @@ void initialize(const Config& conf,
   const std::size_t n = conf.nx_ * conf.ny_;
   auto initializer = stdexec::just()
                    | exec::on( scheduler, stdexec::bulk(n, init_functor(conf, x, y, u, un)) ); 
-  stdexec::sync_wait(initializer);
+  stdexec::sync_wait( std::move(initializer) );
 }
 
 template <class Scheduler>
@@ -180,7 +180,7 @@ void finalize(const Config& conf,
 
   auto analytical_solution = stdexec::just()
     | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, un)) ); 
-  stdexec::sync_wait(analytical_solution);
+  stdexec::sync_wait( std::move(analytical_solution) );
 
   // Check errors
   // un: analytical, u: numerical solutions
@@ -212,7 +212,7 @@ void step(const Config& conf,
   auto time_step = stdexec::just()
     | exec::on( scheduler, stdexec::bulk(n, heat2d_functor(conf, u, un)) )
     | stdexec::then( [&]{ std::swap(u, un); });
-  stdexec::sync_wait(time_step);
+  stdexec::sync_wait( std::move(time_step) );
 }
 
 static void report_performance(const Config& conf, double seconds) {
