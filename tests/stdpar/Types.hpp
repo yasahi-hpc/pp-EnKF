@@ -49,22 +49,22 @@ template <size_type N>
 using shape_type = std::array<size_type, N>;
 
 template <typename ElementType>
-using Mdspan1D = stdex::mdspan<ElementType, stdex::dextents<size_type, 1>, default_layout>;
+using Mdspan1D = stdex::mdspan<ElementType, std::dextents<size_type, 1>, default_layout>;
 template <typename ElementType>
-using Mdspan2D = stdex::mdspan<ElementType, stdex::dextents<size_type, 2>, default_layout>;
+using Mdspan2D = stdex::mdspan<ElementType, std::dextents<size_type, 2>, default_layout>;
 template <typename ElementType>
-using Mdspan3D = stdex::mdspan<ElementType, stdex::dextents<size_type, 3>, default_layout>;
+using Mdspan3D = stdex::mdspan<ElementType, std::dextents<size_type, 3>, default_layout>;
 template <typename ElementType>
-using Mdspan4D = stdex::mdspan<ElementType, stdex::dextents<size_type, 4>, default_layout>;
+using Mdspan4D = stdex::mdspan<ElementType, std::dextents<size_type, 4>, default_layout>;
 
 template < typename ElementType > 
-using View1D = View<ElementType, stdex::dextents< size_type, 1 >, default_layout >;
+using View1D = View<ElementType, std::dextents< size_type, 1 >, default_layout >;
 template < typename ElementType > 
-using View2D = View<ElementType, stdex::dextents< size_type, 2 >, default_layout >;
+using View2D = View<ElementType, std::dextents< size_type, 2 >, default_layout >;
+template < typename ElementType >
+using View3D = View<ElementType, std::dextents< size_type, 3 >, default_layout >;
 template < typename ElementType > 
-using View3D = View<ElementType, stdex::dextents< size_type, 3 >, default_layout >;
-template < typename ElementType > 
-using View4D = View<ElementType, stdex::dextents< size_type, 4 >, default_layout >;
+using View4D = View<ElementType, std::dextents< size_type, 4 >, default_layout >;
 
 using RealView1D = View1D<Real>;
 using RealView2D = View2D<Real>;

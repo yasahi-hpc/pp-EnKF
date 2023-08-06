@@ -57,7 +57,7 @@ namespace Impl {
           out(i1, i0, i2) = in(i0, i1, i2);
       });
     } else if(axes == axes_type({1, 2, 0})) {
-      using mdspan2d_type = stdex::mdspan<value_type, stdex::dextents<size_type, 2>, layout_type>;
+      using mdspan2d_type = stdex::mdspan<value_type, std::dextents<size_type, 2>, layout_type>;
       using extent2d_type = std::array<std::size_t, 2>;
       extent2d_type in_shape({in.extent(0), in.extent(1) * in.extent(2)});
       extent2d_type out_shape({in.extent(1) * in.extent(2), in.extent(0)});
@@ -66,7 +66,7 @@ namespace Impl {
       mdspan2d_type sub_out(out.data_handle(), out_shape);
       transpose(blas_handle, sub_in, sub_out);
     } else if(axes == axes_type({2, 0, 1})) {
-      using mdspan2d_type = stdex::mdspan<value_type, stdex::dextents<size_type, 2>, layout_type>;
+      using mdspan2d_type = stdex::mdspan<value_type, std::dextents<size_type, 2>, layout_type>;
       using extent2d_type = std::array<std::size_t, 2>;
       extent2d_type in_shape({in.extent(0) * in.extent(1), in.extent(2)});
       extent2d_type out_shape({in.extent(2), in.extent(0) * in.extent(1)});

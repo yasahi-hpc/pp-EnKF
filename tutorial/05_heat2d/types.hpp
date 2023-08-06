@@ -13,8 +13,8 @@ namespace stdex = std::experimental;
   using default_layout = stdex::layout_left;
 #endif
 
-using RealView1D = stdex::mdspan<double, stdex::dextents<std::size_t, 1>, default_layout>;
-using RealView2D = stdex::mdspan<double, stdex::dextents<std::size_t, 2>, default_layout>;
-using RealView3D = stdex::mdspan<double, stdex::dextents<std::size_t, 3>, default_layout>;
+using RealView1D = stdex::mdspan<double, std::dextents<std::size_t, 1>, default_layout>;
+using RealView2D = stdex::mdspan<double, std::dextents<std::size_t, 2>, default_layout>;
+using RealView3D = stdex::mdspan<double, std::dextents<std::size_t, 3>, default_layout>;
 
 #endif
