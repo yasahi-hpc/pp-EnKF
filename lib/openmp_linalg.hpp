@@ -64,9 +64,9 @@ namespace Impl {
 
     #pragma omp parallel for
     for(int ib=0; ib<batchSize; ib++) {
-      auto sub_A = submdspan(A, std::experimental::full_extent, std::experimental::full_extent, ib);
-      auto sub_B = submdspan(B, std::experimental::full_extent, std::experimental::full_extent, ib);
-      auto sub_C = submdspan(C, std::experimental::full_extent, std::experimental::full_extent, ib);
+      auto sub_A = stdex::submdspan(A, std::full_extent, std::full_extent, ib);
+      auto sub_B = stdex::submdspan(B, std::full_extent, std::full_extent, ib);
+      auto sub_C = stdex::submdspan(C, std::full_extent, std::full_extent, ib);
 
       Eigen::Map<const matrix_type> matA(sub_A.data_handle(), sub_A.extent(0), sub_A.extent(1));
       Eigen::Map<const matrix_type> matB(sub_B.data_handle(), sub_B.extent(0), sub_B.extent(1));
@@ -133,9 +133,9 @@ namespace Impl {
 
     #pragma omp parallel for
     for(int ib=0; ib<batchSize; ib++) {
-      auto sub_A = submdspan(A, std::experimental::full_extent, std::experimental::full_extent, ib);
-      auto sub_B = submdspan(B, std::experimental::full_extent, ib);
-      auto sub_C = submdspan(C, std::experimental::full_extent, ib);
+      auto sub_A = stdex::submdspan(A, std::full_extent, std::full_extent, ib);
+      auto sub_B = stdex::submdspan(B, std::full_extent, ib);
+      auto sub_C = stdex::submdspan(C, std::full_extent, ib);
 
       Eigen::Map<const matrix_type> matA(sub_A.data_handle(), sub_A.extent(0), sub_A.extent(1));
       Eigen::Map<const vector_type> vecB(sub_B.data_handle(), sub_B.extent(0));
@@ -186,8 +186,8 @@ namespace Impl {
     const int batchSize = v.extent(1);
     #pragma omp parallel for
     for(int ib=0; ib<batchSize; ib++) {
-      auto sub_a = submdspan(a, std::experimental::full_extent, std::experimental::full_extent, ib);
-      auto sub_v = submdspan(v, std::experimental::full_extent, ib);
+      auto sub_a = stdex::submdspan(a, std::full_extent, std::full_extent, ib);
+      auto sub_v = stdex::submdspan(v, std::full_extent, ib);
 
       Eigen::Map<matrix_type> mat(sub_a.data_handle(), sub_a.extent(0), sub_a.extent(1));
       Eigen::Map<vector_type> vec(sub_v.data_handle(), sub_v.extent(0));

@@ -4,6 +4,8 @@ project(executors_tutorial LANGUAGES CXX)
 # Add cmake helpers
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_SOURCE_DIR}/cmake")
 
+set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+
 # Keep BUILD_TESTING
 set(PRIVATE_BUILD_TESTING ${BUILD_TESTING})
 
@@ -22,7 +24,11 @@ endif()
 # Libraries
 add_subdirectory(lib)
 add_subdirectory(ext_lib/json)
-add_subdirectory(ext_lib/eigen)
+add_subdirectory(ext_lib/mdspan)
+
+if(BACKEND STREQUAL "OPENMP")
+    add_subdirectory(ext_lib/eigen)
+endif()
 
 # Test
 set(BUILD_TESTING ${PRIVATE_BUILD_TESTING})

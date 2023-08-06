@@ -18,12 +18,12 @@ namespace stdex = std::experimental;
 #endif
 
 template <typename ElementType>
-using View1D = stdex::mdspan<ElementType, stdex::dextents<size_type, 1>, default_layout>;
+using View1D = stdex::mdspan<ElementType, std::dextents<size_type, 1>, default_layout>;
 
 template <typename ElementType>
-using View2D = stdex::mdspan<ElementType, stdex::dextents<size_type, 2>, default_layout>;
+using View2D = stdex::mdspan<ElementType, std::dextents<size_type, 2>, default_layout>;
 
 template <typename ElementType>
-using View3D = stdex::mdspan<ElementType, stdex::dextents<size_type, 3>, default_layout>;
+using View3D = stdex::mdspan<ElementType, std::dextents<size_type, 3>, default_layout>;
 
 #endif

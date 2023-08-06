@@ -18,4 +18,5 @@ else()
 endif()
 
 # Compiler versions
+target_link_libraries(math_lib INTERFACE std::mdspan)
 target_compile_features(math_lib INTERFACE cxx_std_20)

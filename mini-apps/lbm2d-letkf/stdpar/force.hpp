@@ -53,7 +53,7 @@ public:
     const auto x = x_.mdspan();
     const auto y = y_.mdspan();
     const auto rand_pool = rand_pool_.mdspan();
-    //const auto sub_rand_pool = submdspan(rand_pool, stdex::full_extent_t, stdex::full_extent_t, shift);
+    //const auto sub_rand_pool = stdex::submdspan(rand_pool, std::full_extent_t, std::full_extent_t, shift);
     auto fx = fx_.mdspan();
     auto fy = fy_.mdspan();
 

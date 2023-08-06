@@ -236,8 +236,8 @@ public:
     // Exchange in x direction
     {
       int i = 0;
-      auto ux_send_left  = submdspan(u, 1, inner_y, inner_z);
-      auto ux_send_right = submdspan(u, u.extent(0) - 2, inner_y, inner_z);
+      auto ux_send_left  = stdex::submdspan(u, 1, inner_y, inner_z);
+      auto ux_send_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
 
       pack_(send_buffer(i), ux_send_left, ux_send_right);
     }
@@ -245,8 +245,8 @@ public:
     // Exchange in y direction
     {
       int i = 1;
-      auto uy_send_left  = submdspan(u, inner_x, 1, inner_z);
-      auto uy_send_right = submdspan(u, inner_x, u.extent(1) - 2, inner_z);
+      auto uy_send_left  = stdex::submdspan(u, inner_x, 1, inner_z);
+      auto uy_send_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
 
       pack_(send_buffer(i), uy_send_left, uy_send_right);
     }
@@ -254,8 +254,8 @@ public:
     // Exchange in z direction
     {
       int i = 2;
-      auto uz_send_left  = submdspan(u, inner_x, inner_y, 1);
-      auto uz_send_right = submdspan(u, inner_x, inner_y, u.extent(2) - 2);
+      auto uz_send_left  = stdex::submdspan(u, inner_x, inner_y, 1);
+      auto uz_send_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
 
       pack_(send_buffer(i), uz_send_left, uz_send_right);
     }
@@ -271,8 +271,8 @@ public:
     // Exchange in x direction
     {
       int i = 0;
-      auto ux_recv_left  = submdspan(u, 0, inner_y, inner_z);
-      auto ux_recv_right = submdspan(u, u.extent(0) - 1, inner_y, inner_z);
+      auto ux_recv_left  = stdex::submdspan(u, 0, inner_y, inner_z);
+      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 1, inner_y, inner_z);
 
       unpack_(ux_recv_left, ux_recv_right, recv_buffer(i));
     }
@@ -280,8 +280,8 @@ public:
     // Exchange in y direction
     {
       int i = 1;
-      auto uy_recv_left  = submdspan(u, inner_x, 0, inner_z);
-      auto uy_recv_right = submdspan(u, inner_x, u.extent(1) - 1, inner_z);
+      auto uy_recv_left  = stdex::submdspan(u, inner_x, 0, inner_z);
+      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 1, inner_z);
 
       unpack_(uy_recv_left, uy_recv_right, recv_buffer(i));
     }
@@ -289,8 +289,8 @@ public:
     // Exchange in z direction
     {
       int i = 2;
-      auto uz_recv_left  = submdspan(u, inner_x, inner_y, 0);
-      auto uz_recv_right = submdspan(u, inner_x, inner_y, u.extent(2) - 1);
+      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 0);
+      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 1);
 
       unpack_(uz_recv_left, uz_recv_right, recv_buffer(i));
     }
@@ -306,8 +306,8 @@ public:
     // Exchange in x direction
     {
       int i = 0;
-      auto ux_recv_left  = submdspan(u, 1, inner_y, inner_z);
-      auto ux_recv_right = submdspan(u, u.extent(0) - 2, inner_y, inner_z);
+      auto ux_recv_left  = stdex::submdspan(u, 1, inner_y, inner_z);
+      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
 
       boundaryUpdate_(conf, schdeuler, ux_recv_left, ux_recv_right, recv_buffer(i));
     }
@@ -315,8 +315,8 @@ public:
     // Exchange in y direction
     {
       int i = 1;
-      auto uy_recv_left  = submdspan(u, inner_x, 1, inner_z);
-      auto uy_recv_right = submdspan(u, inner_x, u.extent(1) - 2, inner_z);
+      auto uy_recv_left  = stdex::submdspan(u, inner_x, 1, inner_z);
+      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
 
       boundaryUpdate_(conf, schdeuler, uy_recv_left, uy_recv_right, recv_buffer(i));
     }
@@ -324,8 +324,8 @@ public:
     // Exchange in z direction
     {
       int i = 2;
-      auto uz_recv_left  = submdspan(u, inner_x, inner_y, 1);
-      auto uz_recv_right = submdspan(u, inner_x, inner_y, u.extent(2) - 2);
+      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 1);
+      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
 
       boundaryUpdate_(conf, schdeuler, uz_recv_left, uz_recv_right, recv_buffer(i));
     }
@@ -347,10 +347,10 @@ public:
     // Exchange in x direction
     {
       int i = 0;
-      auto ux_send_left  = submdspan(u, 1, inner_y, inner_z);
-      auto ux_send_right = submdspan(u, u.extent(0) - 2, inner_y, inner_z);
-      auto ux_recv_left  = submdspan(u, 0, inner_y, inner_z);
-      auto ux_recv_right = submdspan(u, u.extent(0) - 1, inner_y, inner_z);
+      auto ux_send_left  = stdex::submdspan(u, 1, inner_y, inner_z);
+      auto ux_send_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
+      auto ux_recv_left  = stdex::submdspan(u, 0, inner_y, inner_z);
+      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 1, inner_y, inner_z);
 
       pack_(send_buffer(i), ux_send_left, ux_send_right);
       commP2P_(recv_buffer(i), send_buffer(i));
@@ -360,10 +360,10 @@ public:
     // Exchange in y direction
     {
       int i = 1;
-      auto uy_send_left  = submdspan(u, inner_x, 1, inner_z);
-      auto uy_send_right = submdspan(u, inner_x, u.extent(1) - 2, inner_z);
-      auto uy_recv_left  = submdspan(u, inner_x, 0, inner_z);
-      auto uy_recv_right = submdspan(u, inner_x, u.extent(1) - 1, inner_z);
+      auto uy_send_left  = stdex::submdspan(u, inner_x, 1, inner_z);
+      auto uy_send_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
+      auto uy_recv_left  = stdex::submdspan(u, inner_x, 0, inner_z);
+      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 1, inner_z);
 
       pack_(send_buffer(i), uy_send_left, uy_send_right);
       commP2P_(recv_buffer(i), send_buffer(i));
@@ -373,10 +373,10 @@ public:
     // Exchange in z direction
     {
       int i = 2;
-      auto uz_send_left  = submdspan(u, inner_x, inner_y, 1);
-      auto uz_send_right = submdspan(u, inner_x, inner_y, u.extent(2) - 2);
-      auto uz_recv_left  = submdspan(u, inner_x, inner_y, 0);
-      auto uz_recv_right = submdspan(u, inner_x, inner_y, u.extent(2) - 1);
+      auto uz_send_left  = stdex::submdspan(u, inner_x, inner_y, 1);
+      auto uz_send_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
+      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 0);
+      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 1);
 
       pack_(send_buffer(i), uz_send_left, uz_send_right);
       commP2P_(recv_buffer(i), send_buffer(i));
