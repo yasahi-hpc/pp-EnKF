@@ -71,6 +71,7 @@ struct Settings {
   bool is_async_ = false; // In order to enable overlapping, in senders/receivers version of letkf
   bool is_bcast_on_host_ = false; // broadcast on device or host
   bool use_time_stamps_ = false; // for detailed analysis
+  bool disable_output_ = false; // for performance measurements
   double ly_epsilon_ = 1.e-8;
 
   // data assimilation parameter

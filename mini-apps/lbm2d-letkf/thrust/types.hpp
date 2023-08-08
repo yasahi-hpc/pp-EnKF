@@ -4,11 +4,11 @@
 #include <array>
 #include <experimental/mdspan>
 #include <Iteration.hpp>
-#include <stdpar/View.hpp>
+#include <executors/View.hpp>
 
 namespace stdex = std::experimental;
   
-#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+#if defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__)
   #include <thrust/complex.h>
   #define SIMD_LOOP
   #define SIMD_WIDTH 1

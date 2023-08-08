@@ -38,9 +38,9 @@ protected:
     int nb_expected_files = conf_.settings_.nbiter_ / conf_.settings_.io_interval_;
     std::string variables[3] = {"rho", "u", "v"};
     for(int it=0; it<nb_expected_files; it++) {
-      for(int i=0; i<3; i++) {
+      for(const auto& variable: variables) {
         auto step = it * conf_.settings_.io_interval_;
-        auto file_name = base_dir_name_ + "/" + variables[i] + "_obs_step" + Impl::zfill(step, 10) + ".dat";
+        auto file_name = base_dir_name_ + "/" + variable + "_obs_step" + Impl::zfill(step, 10) + ".dat";
         if(!Impl::isFileExists(file_name)) {
           std::runtime_error("Expected observation file does not exist." + file_name);
         }
@@ -54,12 +54,23 @@ protected:
     from_file(data_vars->v_obs(), it);
   }
 
+  void load(std::unique_ptr<DataVars>& data_vars, const std::string variable, const int it) {
+    if(variable == "rho") {
+      from_file(data_vars->rho_obs(), it);
+    } else if(variable == "u") {
+      from_file(data_vars->u_obs(), it);
+    } else if(variable == "v") {
+      from_file(data_vars->v_obs(), it);
+    }
+  }
+
 private:
   template <class ViewType>
   void from_file(ViewType& value, const int step) {
     auto file_name = base_dir_name_ + "/" + value.name() + "_step" + Impl::zfill(step, 10) + ".dat";
-    auto mdspan = value.mdspan();
+    auto mdspan = value.host_mdspan();
     Impl::from_binary(file_name, mdspan);
+    value.updateDevice();
   }
 
 };
