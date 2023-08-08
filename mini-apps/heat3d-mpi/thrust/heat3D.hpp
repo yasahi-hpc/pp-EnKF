@@ -74,6 +74,8 @@ void solve(const Config& conf,
                      heat3d_functor(conf, x_mask, y_mask, z_mask, u, un));
     timers[Heat]->end();
 
+    std::swap(u, un);
+
     timers[MainLoop]->end();
   }
 }

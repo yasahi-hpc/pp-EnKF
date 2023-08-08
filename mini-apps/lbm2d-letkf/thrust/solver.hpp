@@ -7,6 +7,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <utils/commandline_utils.hpp>
+#include <utils/device_utils.hpp>
 #include "../timer.hpp"
 #include "../config.hpp"
 #include "../io_config.hpp"
@@ -35,6 +36,7 @@ public:
 
     // Initialize MPI
     mpi_conf_.initialize(argc, argv);
+    Impl::setDevice( mpi_conf_.rank() );
 
     // Initialize Configuration from the input json file
     initialize_conf(filename, conf_);
@@ -73,7 +75,9 @@ public:
       timers_[TimerEnum::MainLoop]->begin();
 
       da_model_->apply(data_vars_, it, timers_);
-      model_->diag(data_vars_, it, timers_);
+      if(!conf_.settings_.disable_output_) {
+        model_->diag(data_vars_, it, timers_);
+      }
 
       timers_[TimerEnum::LBMSolver]->begin();
       model_->solve(data_vars_);
@@ -159,6 +163,10 @@ private:
 
     if(json_data["Settings"].contains("use_time_stamps") ) {
       conf_.settings_.use_time_stamps_ = json_data["Settings"]["use_time_stamps"].get<bool>();
+    }
+
+    if(json_data["Settings"].contains("disable_output") ) {
+      conf_.settings_.disable_output_ = json_data["Settings"]["disable_output"].get<bool>();
     }
 
     // IO settings

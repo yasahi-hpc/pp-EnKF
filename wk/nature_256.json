@@ -13,7 +13,7 @@
         "obs_error_u": 0.1
     },
     "Settings": {
-        "base_dir": "/work/03/jh220030a/i18048/2023P3HPC/executor_testing/wk",
+        "base_dir": "./",
         "sim_type": "nature",
         "case_name": "nature256",
         "nx": 256,

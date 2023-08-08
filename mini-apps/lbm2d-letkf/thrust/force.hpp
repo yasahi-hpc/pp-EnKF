@@ -53,11 +53,11 @@ public:
     const auto x = x_.mdspan();
     const auto y = y_.mdspan();
     const auto rand_pool = rand_pool_.mdspan();
-    //const auto sub_rand_pool = stdex::submdspan(rand_pool, std::full_extent_t, std::full_extent_t, shift);
+    const auto sub_rand_pool = stdex::submdspan(rand_pool, std::full_extent, std::full_extent, shift);
     auto fx = fx_.mdspan();
     auto fy = fy_.mdspan();
 
-    auto force_lambda = [=](const int ix, const int iy) {
+    auto force_lambda = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
       const auto x_tmp = x(ix);
       const auto y_tmp = y(iy);
       value_type fx_tmp = 0.0, fy_tmp = 0.0;
@@ -68,10 +68,10 @@ public:
         const auto sine = sin(theta);
         const auto cosi = cos(theta);
         const value_type r[4] = {
-          rand_pool(n, 0, shift),
-          rand_pool(n, 1, shift),
-          rand_pool(n, 2, shift),
-          rand_pool(n, 3, shift),
+          sub_rand_pool(n, 0),
+          sub_rand_pool(n, 1),
+          sub_rand_pool(n, 2),
+          sub_rand_pool(n, 3)
         };
 
         const auto amp_tmp = amp(n);
@@ -183,6 +183,15 @@ private:
       amp_(i) = force_amp.at(i);
     }
 
+    // deep copy to devices
+    kx_.updateDevice();
+    ky_.updateDevice();
+    amp_.updateDevice();
+    x_.updateDevice();
+    y_.updateDevice();
+    rand_pool_.updateDevice();
+    fx_.updateDevice();
+    fy_.updateDevice();
   }
 };
 
