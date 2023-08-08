@@ -36,4 +36,7 @@ export UCX_IB_GPU_DIRECT_RDMA=no
 export UCX_RNDV_FRAG_MEM_TYPE=cuda
 
 mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
+    ./wrapper.sh ../build/mini-apps/heat3d-mpi/thrust/heat3d-mpi-thrust --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0
+
+mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC -npernode 2 \
     ./wrapper.sh ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0
