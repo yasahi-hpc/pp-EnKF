@@ -196,7 +196,7 @@ private:
 
     auto nx = json_data["Settings"]["nx"].get<int>();
     auto ny = json_data["Settings"]["ny"].get<int>();
-    conf_.settings_.n_ = {nx, ny};
+    conf_.settings_.n_ = {static_cast<std::size_t>(nx), static_cast<std::size_t>(ny)};
 
     auto c  = conf_.phys_.u_ref_ / conf_.settings_.cfl_;
     auto dx = conf_.phys_.h_ref_ / static_cast<double>(ny-1);

@@ -9,7 +9,7 @@ inline int periodic(const int i, const int n) {return (i+n)%n; }
 template <class mdspan3d_type, class mdspan2d_type>
 struct init_feq_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan2d_type rho_, u_, v_;
   mdspan3d_type f_;
@@ -46,7 +46,7 @@ private:
 template <class mdspan2d_type>
 struct vorticity_functor {
 private:
-  using value_type = mdspan2d_type::value_type;
+  using value_type = typename mdspan2d_type::value_type;
   Config conf_;
   mdspan2d_type u_, v_, vor_;
   int nx_, ny_;
@@ -79,7 +79,7 @@ public:
 template <class mdspan2d_type>
 struct sgs_functor {
 private:
-  using value_type = mdspan2d_type::value_type;
+  using value_type = typename mdspan2d_type::value_type;
   Config conf_;
   mdspan2d_type rho_, u_, v_, nu_;
   int nx_, ny_;
@@ -131,7 +131,7 @@ public:
 template <class mdspan3d_type>
 struct streaming_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_, fn_;
   int nx_, ny_;
@@ -157,7 +157,7 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct macroscopic_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_;
@@ -200,7 +200,7 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct streaming_macroscopic_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_, fn_;
   mdspan2d_type rho_, u_, v_;
@@ -258,7 +258,7 @@ public:
 template <class mdspan3d_type, class mdspan2d_type>
 struct collision_srt_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_, fx_, fy_, nu_;

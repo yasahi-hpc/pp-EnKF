@@ -6,7 +6,7 @@
 template <class mdspan3d_type, class mdspan2d_type>
 struct nudging_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
   mdspan3d_type f_;
   mdspan2d_type rho_, u_, v_;
@@ -87,7 +87,7 @@ private:
 template <class mdspan3d_type>
 struct initialize_rR_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
 
   mdspan3d_type rR_; // (n_obs, n_obs, n_batch)
@@ -170,7 +170,7 @@ private:
 template <class mdspan3d_type, class mdspan2d_type>
 struct pack_y_functor {
 private:
-  using value_type = mdspan3d_type::value_type;
+  using value_type = typename mdspan3d_type::value_type;
   Config conf_;
 
   mdspan3d_type y_; // (n_obs_x * n_obs_x, 3, n_batch*n_ens) which is reshaped from y (n_obs, n_batch, n_ens)
