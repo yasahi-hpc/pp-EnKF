@@ -44,7 +44,7 @@ void test_fft_2d() {
 
   // Normalization on GPUs
   auto _u_hat = u_hat.mdspan();
-  auto normalization = [=] (const int ix, const int iy, const int iz) {
+  auto normalization = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy, const int iz) {
     _u_hat(ix, iy, iz) *= normcoeff;
   };
 
@@ -60,7 +60,7 @@ void test_fft_2d() {
   for(int iz=0; iz<Nz; iz++) {
     for(int iy=0; iy<Ny; iy++) {
       for(int ix=0; ix<Nx; ix++) {
-        ASSERT_NEAR( u(ix, iy, iz), u_ref(ix, iy, iz), eps );
+        EXPECT_NEAR( u(ix, iy, iz), u_ref(ix, iy, iz), eps );
       }
     }
   }

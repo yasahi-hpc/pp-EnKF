@@ -1,10 +1,10 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=10:00"
+#PJM -L "elapse=60:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=4
+#PJM --mpi proc=1
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -27,7 +27,7 @@ then
     rm -rf build_OPENMP
     mkdir build_OPENMP && cd build_OPENMP
     cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=OPENMP -DBUILD_TESTING=ON ..
-    cmake --build . -j 8
+    cmake --build . -j 4
     cd ../wk/
 fi
 

@@ -9,8 +9,12 @@
 #include <numeric>
 #include <cassert>
 #include <algorithm>
-#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
-  #include "../Cuda_Helper.hpp"
+#if ! defined(ENABLE_OPENMP) 
+  #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+    #include "../Cuda_Helper.hpp"
+  #elif defined(__HIPCC__)
+    #include "../HIP_Helper.hpp"
+  #endif
 #endif
 
 /* [TO DO] Check the behaviour of thrust::device_vector if it is configured for CPUs */
@@ -220,26 +224,28 @@ public:
   inline void setIsEmpty(bool is_empty) { is_empty_ = is_empty; }
 
   void updateDevice() {
-    //#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
-    //  device_vector_ = host_vector_;
-    //#endif
-    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
-      SafeCudaCall( cudaMemcpy(device_data_, host_data_, size_ * sizeof(value_type), cudaMemcpyHostToDevice) );
+    #if ! defined(ENABLE_OPENMP) 
+      #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+        SafeCudaCall( cudaMemcpy(device_data_, host_data_, size_ * sizeof(value_type), cudaMemcpyHostToDevice) );
+      #elif defined(__HIPCC__)
+        SafeHIPCall( hipMemcpy(device_data_, host_data_, size_ * sizeof(value_type), hipMemcpyHostToDevice) );
+      #endif
     #endif
   }
 
   void updateSelf() {
-    //#if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
-    //  host_vector_ = device_vector_;
-    //#endif
-    #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__))
-      SafeCudaCall( cudaMemcpy(host_data_, device_data_, size_ * sizeof(value_type), cudaMemcpyDeviceToHost) );
+    #if ! defined(ENABLE_OPENMP) 
+      #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+        SafeCudaCall( cudaMemcpy(host_data_, device_data_, size_ * sizeof(value_type), cudaMemcpyDeviceToHost) );
+      #elif defined(__HIPCC__)
+        SafeHIPCall( hipMemcpy(host_data_, device_data_, size_ * sizeof(value_type), hipMemcpyDeviceToHost) );
+      #endif
     #endif
   } 
 
   void fill(const ElementType value = 0) {
     #if ! defined(ENABLE_OPENMP) && (defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__))
-      thrust::fill(device_vector_.begin(), device_vector_.end(), value);
+      thrust::fill(device_data_, device_data_+size_, value);
       updateSelf();
     #else
       thrust::fill(host_vector_.begin(), host_vector_.end(), value);

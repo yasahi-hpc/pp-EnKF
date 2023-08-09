@@ -44,7 +44,8 @@ public:
       rand_.normal(rand_pool_.data(), n_rand_buf_, mean_, stddev_);
       i_rand_outdated_ = 0;
     }
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const int shift = i_rand_outdated_ / (4 * amp_.size());
     const auto force_n = amp_.size();
     const auto kx = kx_.mdspan();

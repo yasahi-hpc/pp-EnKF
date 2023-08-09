@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <thrust/execution_policy.h>
-#include "exec/on.hpp"
 #include "../types.hpp"
 #include "../config.hpp"
 #include "grid.hpp"
@@ -200,10 +199,14 @@ static void report_performance(const Config& conf, double seconds) {
   // 9 Flop per iteration
   const double GFlops = static_cast<double>(n) * static_cast<double>(conf.nbiter_) * 9 / 1.e9;
 
-  #if defined(ENABLE_OPENMP)
+  #if defined(ENABLE_OPENMP) 
     std::cout << "OpenMP backend" << std::endl;
-  #else
+  #elif defined(_NVHPC_CUDA) || defined(__CUDACC__) 
     std::cout << "CUDA backend" << std::endl;
+  #elif defined(__HIPCC__)
+    std::cout << "HIP backend" << std::endl;
+  #else
+    std::cout << "OpenMP backend" << std::endl;
   #endif
 
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;

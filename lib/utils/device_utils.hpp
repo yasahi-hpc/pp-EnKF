@@ -2,6 +2,9 @@
 #define __DEVICE_UTILS_HPP__
 
 #include <cstdio>
+#if defined(__HIPCC__)
+  #include <hip/hip_runtime.h>
+#endif
 
 namespace Impl {
   #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
@@ -19,7 +22,6 @@ namespace Impl {
       printf("Process%d running on GPU%d\n", rank, id);
     }
   #elif defined(__HIPCC__)
-    #include <hip/hip_runtime.h>
     inline void synchronize() {
       [[maybe_unused]] hipError_t err = hipDeviceSynchronize();
     }
@@ -34,7 +36,6 @@ namespace Impl {
       err = hipGetDevice(&id);
       printf("Process%d running on GPU%d\n", rank, id);
     }
-  
   #else
     inline void synchronize() {}
     inline void setDevice(int rank) {}

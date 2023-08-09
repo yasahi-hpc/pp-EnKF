@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 
-#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+#if defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__)
     #include <thrust/complex.h>
     template <typename RealType> using Complex = thrust::complex<RealType>;
 #else

@@ -1,24 +1,30 @@
 cmake_minimum_required(VERSION 3.23)
-project(executors_tutorial LANGUAGES CXX)
+project(pp-EnKF LANGUAGES CXX)
 
 # Add cmake helpers
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_SOURCE_DIR}/cmake")
 
 set(BACKEND AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+set(PROGRAMMING_MODEL AUTO CACHE STRING "CHOICE OF PARALLEL BACKEND")
+if(BACKEND STREQUAL "HIP")
+    set(PROGRAMMING_MODEL "THRUST")
+endif()
 
 # Keep BUILD_TESTING
 set(PRIVATE_BUILD_TESTING ${BUILD_TESTING})
 
 # Find external libraries
-find_package(Threads REQUIRED)
-find_package(stdexec CONFIG)
+if(NOT BACKEND STREQUAL "HIP")
+    find_package(Threads REQUIRED)
+    find_package(stdexec CONFIG)
 
-# In order to disable testing for stdexec
-set(STDEXEC_BUILD_EXAMPLES OFF)
-set(STDEXEC_BUILD_TESTS OFF)
-set(BUILD_TESTING OFF)
-if(NOT stdexec_FOUND)
-    add_subdirectory(ext_lib/stdexec)
+    # In order to disable testing for stdexec
+    set(STDEXEC_BUILD_EXAMPLES OFF)
+    set(STDEXEC_BUILD_TESTS OFF)
+    set(BUILD_TESTING OFF)
+    if(NOT stdexec_FOUND)
+        add_subdirectory(ext_lib/stdexec)
+    endif()
 endif()
 
 # Libraries
@@ -42,7 +48,9 @@ if(BUILD_TESTING)
 endif()
 
 # Tutorial
-add_subdirectory(tutorial)
+if(NOT BACKEND STREQUAL "HIP")
+    add_subdirectory(tutorial)
+endif()
 
 # Mini-apps
 add_subdirectory(mini-apps)

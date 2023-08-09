@@ -11,7 +11,7 @@ using shape_type = std::array<size_type, N>;
 
 namespace stdex = std::experimental;
 
-#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+#if defined(_NVHPC_CUDA) || defined(__CUDACC__) || defined(__HIPCC__)
   using default_layout = stdex::layout_left;
 #else
   using default_layout = stdex::layout_left;

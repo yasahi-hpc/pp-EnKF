@@ -1,3 +1,5 @@
+#include <random>
+#include <functional>
 #include <gtest/gtest.h>
 #include "Types.hpp"
 #include <executors/Transpose.hpp>
@@ -18,17 +20,21 @@ TEST( TRANSPOSE2D, FP32 ) {
   View2D<RealType> Ref_even("Ref_even", cols, rows);
   View2D<RealType> Ref_odd("Ref_odd", cols2, rows2);
 
+  auto rand_engine = std::mt19937(0);
+  auto rand_dist = std::uniform_real_distribution<RealType>(-1, 1);
+  auto rand_gen = std::bind(rand_dist, rand_engine);
+
   // Set random numbers to 2D view
   for(int i=0; i<cols; i++) {
     for(int j=0; j<rows; j++) {
-      A_even(j, i) = i * 0.12 + j * 0.5 + 0.001;
+      A_even(j, i) = rand_gen();
       Ref_even(i, j) = A_even(j, i);
     }
   }
 
   for(int i=0; i<cols2; i++) {
     for(int j=0; j<rows2; j++) {
-      A_odd(j, i) = i * 0.13 + j * 0.51 + 0.002;
+      A_odd(j, i) = rand_gen();
       Ref_odd(i, j) = A_odd(j, i);
     }
   }
@@ -75,17 +81,21 @@ TEST( TRANSPOSE2D, FP64 ) {
   View2D<RealType> Ref_even("Ref_even", cols, rows);
   View2D<RealType> Ref_odd("Ref_odd", cols2, rows2);
 
+  auto rand_engine = std::mt19937(0);
+  auto rand_dist = std::uniform_real_distribution<RealType>(-1, 1);
+  auto rand_gen = std::bind(rand_dist, rand_engine);
+
   // Set random numbers to 2D view
   for(int i=0; i<cols; i++) {
     for(int j=0; j<rows; j++) {
-      A_even(j, i) = i * 0.12 + j * 0.5 + 0.001;
+      A_even(j, i) = rand_gen();
       Ref_even(i, j) = A_even(j, i);
     }
   }
 
   for(int i=0; i<cols2; i++) {
     for(int j=0; j<rows2; j++) {
-      A_odd(j, i) = i * 0.13 + j * 0.51 + 0.002;
+      A_odd(j, i) = rand_gen();
       Ref_odd(i, j) = A_odd(j, i);
     }
   }
@@ -136,11 +146,15 @@ TEST( TRANSPOSE2D_batched, FP32 ) {
   View3D<RealType> ref4("ref4", l, n, m);
   View3D<RealType> ref5("ref5", l, m, n);
 
+  auto rand_engine = std::mt19937(0);
+  auto rand_dist = std::uniform_real_distribution<RealType>(-1, 1);
+  auto rand_gen = std::bind(rand_dist, rand_engine);
+
   // Set random numbers to 3D view
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
       for(int ix=0; ix<n; ix++) {
-        x(ix, iy, iz) = ix * 0.01 + iy * 0.203 + iz * 0.07;
+        x(ix, iy, iz) = rand_gen();
 
         ref0(ix, iy, iz) = x(ix, iy, iz);
         ref1(ix, iz, iy) = x(ix, iy, iz);
@@ -210,11 +224,15 @@ TEST( TRANSPOSE2D_batched, FP64 ) {
   View3D<RealType> ref4("ref4", l, n, m);
   View3D<RealType> ref5("ref5", l, m, n);
 
+  auto rand_engine = std::mt19937(0);
+  auto rand_dist = std::uniform_real_distribution<RealType>(-1, 1);
+  auto rand_gen = std::bind(rand_dist, rand_engine);
+
   // Set random numbers to 3D view
   for(int iz=0; iz<l; iz++) {
     for(int iy=0; iy<m; iy++) {
       for(int ix=0; ix<n; ix++) {
-        x(ix, iy, iz) = ix * 0.01 + iy * 0.203 + iz * 0.07;
+        x(ix, iy, iz) = rand_gen();
 
         ref0(ix, iy, iz) = x(ix, iy, iz);
         ref1(ix, iz, iy) = x(ix, iy, iz);
@@ -263,4 +281,3 @@ TEST( TRANSPOSE2D_batched, FP64 ) {
     }
   }
 }
-

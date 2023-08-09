@@ -5,6 +5,8 @@
   #include "OpenMP_Random.hpp"
 #elif defined(_NVHPC_CUDA) || defined(__CUDACC__)
   #include "Cuda_Random.hpp"
+#elif defined(__HIPCC__)
+  #include "HIP_Random.hpp"
 #else
   #include "OpenMP_Random.hpp"
 #endif

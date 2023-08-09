@@ -46,9 +46,10 @@ public:
 
 public:
   // Methods
-  void initialize(std::unique_ptr<DataVars>& data_vars) {
+  void initialize(std::unique_ptr<DataVars>& data_vars) override {
     // tmp val for stream function
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     value_type p_amp = static_cast<value_type>(conf_.phys_.p_amp_);
     int nkx = nx/2;
     value_type k0 = static_cast<value_type>(conf_.phys_.kf_);
@@ -119,7 +120,7 @@ public:
     // Modify u, v by max. vs cfl
     value_type u_ref = static_cast<value_type>(conf_.phys_.u_ref_);
     value_type vmax  = 1e-30 * u_ref;
-    auto max_speed = [=](const int ix, const int iy) {
+    auto max_speed = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
       auto _u = u(ix, iy);
       auto _v = v(ix, iy);
       return std::sqrt(_u*_u + _v*_v);
@@ -162,13 +163,13 @@ public:
     }
   }
 
-  void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) {
+  void reset(std::unique_ptr<DataVars>& data_vars, const std::string mode) override {
     if(mode == "purturbulate") {
       purturbulate(data_vars);
     }
   }
 
-  void solve(std::unique_ptr<DataVars>& data_vars) {
+  void solve(std::unique_ptr<DataVars>& data_vars) override {
     // Update force
     update_forces();
 
@@ -186,7 +187,7 @@ public:
     fn.swap(f);
   }
 
-  void diag(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
+  void diag(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers) override {
     /* 
      * 0. Nature run or perturbed run (as reference)
      *    Save rho, u, v and vor into /nature (as is) and /observed (with noise)
@@ -218,7 +219,7 @@ public:
     timers[TimerEnum::Diag]->end();
   }
 
-  void finalize() {}
+  void finalize() override {}
 
 private:
   // Related to initialization
@@ -271,7 +272,8 @@ private:
   }
 
   void streaming(std::unique_ptr<DataVars>& data_vars) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto Q = conf_.phys_.Q_;
     const auto f = data_vars->f().mdspan();
     auto      fn = data_vars->fn().mdspan();
@@ -281,7 +283,8 @@ private:
   }
 
   void macroscopic(std::unique_ptr<DataVars>& data_vars) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto fn = data_vars->fn().mdspan();
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
@@ -292,7 +295,8 @@ private:
   }
 
   void streaming_macroscopic(std::unique_ptr<DataVars>& data_vars) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto f  = data_vars->f().mdspan();
     auto fn  = data_vars->fn().mdspan();
     auto rho = data_vars->rho().mdspan();
@@ -304,7 +308,8 @@ private:
   }
 
   void sgs(std::unique_ptr<DataVars>& data_vars) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto rho = data_vars->rho().mdspan();
     const auto u   = data_vars->u().mdspan();
     const auto v   = data_vars->v().mdspan();
@@ -315,7 +320,8 @@ private:
   }
 
   void collision(std::unique_ptr<DataVars>& data_vars) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     auto fn = data_vars->fn().mdspan();
     const auto fx = force_->fx().mdspan();
     const auto fy = force_->fy().mdspan();
@@ -330,7 +336,8 @@ private:
 
 private:
   void inspect(std::unique_ptr<DataVars>& data_vars, const int it) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     value_type dx    = static_cast<value_type>(conf_.settings_.dx_);
     value_type u_ref = static_cast<value_type>(conf_.phys_.u_ref_);
 
@@ -339,7 +346,7 @@ private:
     auto v   = data_vars->v().mdspan();
     const auto nu = nu_.mdspan();
 
-    using moment_type = std::tuple<double, double, double, double, double, double, double, double, double>;
+    using moment_type = thrust::tuple<double, double, double, double, double, double, double, double, double>;
     moment_type moments = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     auto moment_kernel = 
@@ -375,22 +382,22 @@ private:
 
     auto sum_operator =
       [=] MDSPAN_FORCE_INLINE_FUNCTION (const moment_type& left, const moment_type& right) {
-        return moment_type {std::get<0>(left) + std::get<0>(right),
-                            std::get<1>(left) + std::get<1>(right),
-                            std::get<2>(left) + std::get<2>(right),
-                            std::get<3>(left) + std::get<3>(right),
-                            std::get<4>(left) + std::get<4>(right),
-                            std::get<5>(left) + std::get<5>(right),
-                            std::get<6>(left) + std::get<6>(right),
-                            std::get<7>(left) + std::get<7>(right),
-                            std::get<8>(left) + std::get<8>(right)
+        return moment_type {thrust::get<0>(left) + thrust::get<0>(right),
+                            thrust::get<1>(left) + thrust::get<1>(right),
+                            thrust::get<2>(left) + thrust::get<2>(right),
+                            thrust::get<3>(left) + thrust::get<3>(right),
+                            thrust::get<4>(left) + thrust::get<4>(right),
+                            thrust::get<5>(left) + thrust::get<5>(right),
+                            thrust::get<6>(left) + thrust::get<6>(right),
+                            thrust::get<7>(left) + thrust::get<7>(right),
+                            thrust::get<8>(left) + thrust::get<8>(right)
                            };
       };
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
     Impl::transform_reduce(policy2d, sum_operator, moment_kernel, moments);
 
-    using minmax_type = std::tuple<double, double, double, double>;
+    using minmax_type = thrust::tuple<double, double, double, double>;
     minmax_type minmaxs = {0, 0, 0, 10000};
     // Compute maximum
     auto minmax_kernel =
@@ -418,28 +425,28 @@ private:
 
     auto minmax_operator =
       [=] MDSPAN_FORCE_INLINE_FUNCTION (const minmax_type& left, const minmax_type& right) {
-        return minmax_type {thrust::max( std::get<0>(left), std::get<0>(right) ),
-                            thrust::max( std::get<1>(left), std::get<1>(right) ),
-                            thrust::max( std::get<2>(left), std::get<2>(right) ),
-                            thrust::min( std::get<3>(left), std::get<3>(right) )
+        return minmax_type {thrust::max( thrust::get<0>(left), thrust::get<0>(right) ),
+                            thrust::max( thrust::get<1>(left), thrust::get<1>(right) ),
+                            thrust::max( thrust::get<2>(left), thrust::get<2>(right) ),
+                            thrust::min( thrust::get<3>(left), thrust::get<3>(right) )
                            };
       };
     Impl::transform_reduce(policy2d, minmax_operator, minmax_kernel, minmaxs);
 
-    auto maxvel2 = std::get<0>(minmaxs);
-    auto maxdivu = std::get<1>(minmaxs);
-    auto rho_max = std::get<2>(minmaxs);
-    auto rho_min = std::get<3>(minmaxs);
+    auto maxvel2 = thrust::get<0>(minmaxs);
+    auto maxdivu = thrust::get<1>(minmaxs);
+    auto rho_max = thrust::get<2>(minmaxs);
+    auto rho_min = thrust::get<3>(minmaxs);
 
-    auto momentum_x_total = std::get<0>(moments) / (nx * ny);
-    auto momentum_y_total = std::get<1>(moments) / (nx * ny);
-    auto energy           = std::get<2>(moments) / (nx * ny);
-    auto enstrophy        = std::get<3>(moments) / (nx * ny);
-    auto nus_total        = std::get<4>(moments) / (nx * ny);
-    auto mass             = std::get<5>(moments) / (nx * ny);
-    auto divu2            = std::get<6>(moments) / (nx * ny);
-    auto divu             = std::get<7>(moments) / (nx * ny);
-    auto vel2             = std::get<8>(moments) / (nx * ny);
+    auto momentum_x_total = thrust::get<0>(moments) / (nx * ny);
+    auto momentum_y_total = thrust::get<1>(moments) / (nx * ny);
+    auto energy           = thrust::get<2>(moments) / (nx * ny);
+    auto enstrophy        = thrust::get<3>(moments) / (nx * ny);
+    auto nus_total        = thrust::get<4>(moments) / (nx * ny);
+    auto mass             = thrust::get<5>(moments) / (nx * ny);
+    auto divu2            = thrust::get<6>(moments) / (nx * ny);
+    auto divu             = thrust::get<7>(moments) / (nx * ny);
+    auto vel2             = thrust::get<8>(moments) / (nx * ny);
 
     std::cout << std::scientific << std::setprecision(16) << std::flush;
     std::cout << " it/nbiter: " << it << "/" << conf_.settings_.nbiter_ << std::endl;
@@ -458,7 +465,8 @@ private:
   // Related to diagnostics
   template <class ViewType>
   void update_vorticity(const ViewType& u, const ViewType& v, ViewType& vor) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto u_tmp = u.mdspan();
     const auto v_tmp = v.mdspan();
     auto vor_tmp = vor.mdspan();
@@ -469,7 +477,8 @@ private:
 
   template <class ViewType>
   void add_noise(const ViewType& value, ViewType& noisy_value, const value_type error=0.0) {
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     const auto value_tmp = value.mdspan();
     auto noisy_value_tmp = noisy_value.mdspan();
     const auto noise_tmp = noise_.mdspan();

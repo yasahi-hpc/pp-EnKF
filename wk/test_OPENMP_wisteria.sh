@@ -1,5 +1,6 @@
 #!/bin/bash
-pjsub sub_tests_Icelake.sh
+./sub_tests_Icelake.sh
+#pjsub sub_tests_Icelake.sh
 
 job_completed=0
 while [ $job_completed -eq 0 ]; do

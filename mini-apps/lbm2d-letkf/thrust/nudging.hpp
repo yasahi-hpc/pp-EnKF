@@ -28,7 +28,8 @@ public:
     auto u_obs   = data_vars->u_obs().mdspan();
     auto v_obs   = data_vars->v_obs().mdspan();
 
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
 
     Iterate_policy<2> policy2d({0, 0}, {nx, ny});
     timers[DA_Update]->begin();

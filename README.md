@@ -1,4 +1,4 @@
-# Performance portable Ensemble Kalman Filter (pp-LETKF)
+# Performance portable Ensemble Kalman Filter (pp-EnKF)
 
 [![CI](https://github.com/yasahi-hpc/executor_testing/actions/workflows/test_on_wisteria.yml/badge.svg)](https://github.com/yasahi-hpc/executor_testing/actions)
 
@@ -9,18 +9,11 @@
 
 
 pp-LETKF is the performance portable implementation of local ensemble transform Kalman filter (LETKF). 
-We use C++ parallel algorithms (stdpar), C++ [senders/receivers](https://github.com/NVIDIA/stdexec) and [_mdspan_](https://github.com/kokkos/mdspan) for performance, portablity and productivitiy (P3).
+We use C++ parallel algorithms (_stdpar), C++ [_senders/receivers](https://github.com/NVIDIA/stdexec) and [_mdspan_](https://github.com/kokkos/mdspan) for performance, portablity and productivitiy (P3).
 Highly optimized CUDA version is found at [LBM2D-LETKF](https://github.com/hasegawa-yuta-jaea/LBM2D-LETKF).
 For questions or comments, please find us in the [AUTHORS](AUTHORS) file.
 
 # Usage
-## Preparation
-Firstly, you need to git clone on your environment as
-```
-git clone --recursive git@github.com:yasahi-hpc/executor_testing.git
-```
-This software relies on external libraries including [eigen](https://gitlab.com/libeigen/eigen), [json](https://github.com/nlohmann/json) and [googletest](https://github.com/google/googletest) (optional, for unit testing). These libraries are included as submodules. CUDA-Aware-MPI or ROCm-Aware-MPI are also needed for NVIDIA and AMD GPUs. In the following, we assume that MPI libraries are appropriately installed.
-
 ## Settings
 In order to try this repo, following setups are needed.
 1. Clone this repo
@@ -30,20 +23,35 @@ git clone --recursive https://github.com/yasahi-hpc/executor_testing.git
 2. Download and install the [NVIDIA HPC SDK starting with 22.11](https://developer.nvidia.com/nvidia-hpc-sdk-releases)
 
 ## Requirements
-This software relies on external libraries including [`stdexec`](https://github.com/NVIDIA/stdexec), [eigen](https://gitlab.com/libeigen/eigen), [json](https://github.com/nlohmann/json), `mdspan` (included in SDK22.11) and [googletest](https://github.com/google/googletest) (optional, for unit testing). These libraries are included as submodules. CUDA-Aware-MPI or ROCm-Aware-MPI are also needed for NVIDIA and AMD GPUs. In the following, we assume that MPI libraries are appropriately installed.
+This software relies on external libraries including [`stdexec`](https://github.com/NVIDIA/stdexec), [`eigen`](https://gitlab.com/libeigen/eigen), [`json`](https://github.com/nlohmann/json), [`mdspan`](https://github.com/kokkos/mdspan) and [`googletest`](https://github.com/google/googletest) (optional, for unit testing). These libraries are included as submodules. CUDA-Aware-MPI or ROCm-Aware-MPI are also needed for NVIDIA and AMD GPUs. In the following, we assume that MPI libraries are appropriately installed.
 
 For compilers and CMake, we need the following:
 * gcc11+ (c++20 support is necessary)
 * nvc++22.11+ (for NVIDIA GPUs)
+* rocm5.4.3+ (for AMD GPUs)
 * CMake3.22.1+
 
 ## Configure and Build
+We rely on CMake to build the applications. 4 mini applications `heat3d`, `heat3d_mpi`, `vlp4d`, and `lbm2d-letkf` are provided. You can compile with the following CMake command. For `-DAPPLICATION` option, `<app_name>` should be choosen from the application names provided above. To enable test, you should set `-DBUILD_TESTING=ON`. Following table summarizes the allowed combinations of `<programming_model>`, `<compiler_name>`, and `<backend>` for each `DEVICE`.
 ```bash
 cd executor_testing
 mkdir build && cd build
-cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=[CUDA, OPENMP] ..
+cmake -DCMAKE_CXX_COMPILER=<compiler_name> \
+      -DCMAKE_BUILD_TYPE=<build_type> \
+      -DBUILD_TESTING=OFF \
+      -DPROGRAMMING_MODEL=<programming_model> \
+      -DBACKEND=<backend> \
+      -DAPPLICATION=<app_name>
 cmake --build . -j 8
 ```
+
+|  DEVICE |  programming_model  |  compiler_name  | backend  | 
+| :-: | :-: | :-: | :-: |
+|  IceLake  | EXECUTORS <br> THRUST <br> STDPAR  | nvc++ | OPENMP | 
+|  V100 <br> A100 <br> H100 | EXECUTORS <br> THRUST <br> STDPAR | nvc++ | CUDA |
+|  MI250X | THRUST | hipcc  | HIP |
+
+`-DAPPLICATION` and `-DPROGRAMMING_MODEL` are optional. If not added, all mini-apps will be compiled with all allowed programming models.
 
 ## Run
 We perform an observing system simulation experiment (OSSE) for 2D forced turbulence simulation with Lattice Boltzmann Methods (LBM).
@@ -176,6 +184,45 @@ The latter corresponds to the numerical settings for simulation.
 | `rloc_len` | Float | Number of adjacent grid points used in R-Localization. Used only for LETKF simulation. |
 
 # Citation
+## Performance Portability
+```bibtex
+@INPROCEEDINGS{Asahi2022,
+      author={Asahi, Yuuichi and Padioleau, Thomas and Latu, Guillaume and Bigot, Julien and Grandgirard, Virginie and Obrejan, Kevin},
+      booktitle={2022 IEEE/ACM International Workshop on Performance, Portability and Productivity in HPC (P3HPC)}, 
+      title={Performance portable Vlasov code with C++ parallel algorithm}, 
+      year={2022},
+      volume={},
+      number={},
+      pages={68-80},
+      doi={10.1109/P3HPC56579.2022.00012}}
+```
+
+```bibtex
+@INPROCEEDINGS{Asahi2021, 
+      author={Asahi, Yuuichi and Latu, Guillaume and Bigot, Julien and Grandgirard, Virginie},
+      booktitle={2021 International Workshop on Performance, Portability and Productivity in HPC (P3HPC)},
+      title={Optimization strategy for a performance portable Vlasov code},
+      year={2021},
+      volume={},
+      number={},
+      pages={79-91},
+      doi={10.1109/P3HPC54578.2021.00011}}
+```
+
+```bibtex
+@INPROCEEDINGS{Asahi2019,
+    author = {Asahi, Yuuichi and Latu, Guillaume and Grandgirard, Virginie and Bigot, Julien}, 
+    title = {Performance Portable Implementation of a Kinetic Plasma Simulation Mini-App}, 
+    booktitle = {Accelerator Programming Using Directives}, 
+    year = {2020},
+    editor = {Wienke, Sandra and Bhalachandra, Sridutt}, 
+    series = {series},
+    pages = {117--139},
+    address = {Cham},
+    publisher = {Springer International Publishing}, 
+}
+```
+
 ## LETKF
 ```bibtex
 @inproceedings{Hasegawa2022-ScalAH22,
@@ -188,7 +235,9 @@ The latter corresponds to the numerical settings for simulation.
    pages={10-17},
    doi={10.1109/ScalAH56622.2022.00007}
  }
- 
+```
+
+```bibtex
  @article{Hasegawa202x,
     author={Hasegawa, Yuta and Onodera, Naoyuki and Asahi, Yuuichi and Ina, Takuya and Idomura, Yasuhiro and Imamura, Toshiyuki},
     journal={in preparation},

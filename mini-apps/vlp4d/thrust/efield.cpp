@@ -62,7 +62,7 @@ void Efield::solve_poisson_fftw() {
   // Solve Poisson equation in Fourier space
   // In order to avoid zero division in vectorized way
   // filter[0] == 0, and filter[0:] == 1./(ix*kx0)**2
-  auto solve_poisson = [=](const int ix1) {
+  auto solve_poisson = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix1) {
     float64 kx = ix1 * kx0;
     {
       int ix2 = 0;

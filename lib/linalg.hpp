@@ -5,6 +5,8 @@
   #include "openmp_linalg.hpp"
 #elif defined(_NVHPC_CUDA) || defined(__CUDACC__) 
   #include "cuda_linalg.hpp"
+#elif defined(__HIPCC__)
+  #include "hip_linalg.hpp"
 #else
   #include "openmp_linalg.hpp"
 #endif

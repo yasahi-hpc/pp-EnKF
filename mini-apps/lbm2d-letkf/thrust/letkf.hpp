@@ -125,13 +125,15 @@ private:
     auto yk_buffer = yk_buffer_.mdspan();
     auto Y = letkf_solver_->Y().mdspan();
 
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
     auto v   = data_vars->v().mdspan();
 
     const int y_offset0 = 0;
-    auto _yk = Impl::reshape(yk, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny}));
+    const std::size_t n_obs_x_sq = static_cast<std::size_t>(n_obs_x_*n_obs_x_);
+    auto _yk = Impl::reshape(yk, std::array<std::size_t, 3>({n_obs_x_sq, 3, _nx*_ny}));
     Iterate_policy<4> yk_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny});
     timers[DA_Pack_Y]->begin();
     Impl::for_each(yk_pack_policy4d, pack_y_functor(conf_, y_offset0, rho, u, v, _yk));
@@ -158,7 +160,8 @@ private:
 
     const int ny_local = ny/mpi_conf_.size();
     const int y_offset = ny_local * mpi_conf_.rank();
-    auto _y_obs = Impl::reshape(y_obs, std::array<std::size_t, 3>({n_obs_x_*n_obs_x_, 3, nx*ny_local}));
+    const std::size_t nxy_local = _nx * static_cast<std::size_t>(ny_local);
+    auto _y_obs = Impl::reshape(y_obs, std::array<std::size_t, 3>({n_obs_x_sq, 3, nxy_local}));
     Iterate_policy<4> yo_pack_policy4d({0, 0, 0, 0}, {n_obs_x_, n_obs_x_, nx, ny_local});
 
     timers[DA_Pack_Obs]->begin();
@@ -175,7 +178,8 @@ private:
     all2all(xk_buffer, xk); // xk_buffer (n_stt, n_batch, n_ens) -> xk(n_stt, n_batch, n_ens)
     Impl::transpose(blas_handle_, xk, f, {1, 2, 0}); // (Q, nx*ny) -> (nx, ny, Q)
 
-    auto [nx, ny] = conf_.settings_.n_;
+    auto [_nx, _ny] = conf_.settings_.n_;
+    const int nx = static_cast<int>(_nx), ny = static_cast<int>(_ny);
     auto rho = data_vars->rho().mdspan();
     auto u   = data_vars->u().mdspan();
     auto v   = data_vars->v().mdspan();
@@ -188,7 +192,7 @@ private:
             std::enable_if_t<ViewType::rank()==3, std::nullptr_t> = nullptr>
   void all2all(const ViewType& a, ViewType& b) {
     assert( a.extents() == b.extents() );
-    MPI_Datatype mpi_datatype = Impl::getMPIDataType<ViewType::value_type>();
+    MPI_Datatype mpi_datatype = Impl::getMPIDataType<typename ViewType::value_type>();
 
     const std::size_t size = a.extent(0) * a.extent(1);
     MPI_Alltoall(a.data_handle(),
@@ -202,7 +206,7 @@ private:
 
   template <class ViewType>
   void broadcast(ViewType& a) {
-    MPI_Datatype mpi_datatype = Impl::getMPIDataType<ViewType::value_type>();
+    MPI_Datatype mpi_datatype = Impl::getMPIDataType<typename ViewType::value_type>();
 
     const std::size_t size = a.size();
     MPI_Bcast(a.data_handle(),
