@@ -134,13 +134,14 @@ static void report_performance(const Config& conf, double seconds) {
 
   #if defined(ENABLE_OPENMP)
     std::cout << "OpenMP backend" << std::endl;
-  #else
+  #elif defined(_NVHPC_CUDA) || defined(__CUDACC__)
     std::cout << "CUDA backend" << std::endl;
+  #elif defined(__HIPCC__)
+    std::cout << "HIP backend" << std::endl;
+  #else
+    std::cout << "OpenMP backend" << std::endl;
   #endif
 
-  if(conf.is_async_) {
-    std::cout << "Communication and Computation Overlap" << std::endl;
-  }
   std::cout << "Elapsed time: " << seconds << " [s]" << std::endl;
   std::cout << "Bandwidth: " << GBytes / seconds << " [GB/s]" << std::endl;
   std::cout << "Flops: " << GFlops / seconds << " [GFlops]" << std::endl;

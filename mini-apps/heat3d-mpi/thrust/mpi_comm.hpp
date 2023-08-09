@@ -309,7 +309,7 @@ public:
       auto ux_recv_left  = stdex::submdspan(u, 1, inner_y, inner_z);
       auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
 
-      boundaryUpdate_(conf, schdeuler, ux_recv_left, ux_recv_right, recv_buffer(i));
+      boundaryUpdate_(conf, ux_recv_left, ux_recv_right, recv_buffer(i));
     }
 
     // Exchange in y direction
@@ -318,7 +318,7 @@ public:
       auto uy_recv_left  = stdex::submdspan(u, inner_x, 1, inner_z);
       auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
 
-      boundaryUpdate_(conf, schdeuler, uy_recv_left, uy_recv_right, recv_buffer(i));
+      boundaryUpdate_(conf, uy_recv_left, uy_recv_right, recv_buffer(i));
     }
 
     // Exchange in z direction
@@ -327,7 +327,7 @@ public:
       auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 1);
       auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
 
-      boundaryUpdate_(conf, schdeuler, uz_recv_left, uz_recv_right, recv_buffer(i));
+      boundaryUpdate_(conf, uz_recv_left, uz_recv_right, recv_buffer(i));
     }
   }
 
