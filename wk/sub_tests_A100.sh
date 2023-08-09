@@ -1,7 +1,7 @@
 #!/bin/bash -e
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=10:00"
+#PJM -L "elapse=30:00"
 #PJM -s
 #PJM -g jh220031a
 #PJM --mpi proc=4
