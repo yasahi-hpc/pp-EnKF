@@ -17,7 +17,8 @@ namespace Advection {
 #define LAG_HALO_PTS 3
 #define LAG_PTS 5
 
-static inline void lag_basis(double posx, double * coef) {
+MDSPAN_FORCE_INLINE_FUNCTION
+inline void lag_basis(double posx, double * coef) {
   const double loc[] = {1./24., -1./6., 1./4., -1./6., 1./24.};
 
   coef[0] = loc[0] * (posx - 1.) * (posx - 2.) * (posx - 3.) * (posx - 4.);
@@ -34,7 +35,8 @@ static inline void lag_basis(double posx, double * coef) {
 #define LAG_PTS 6
 #define LAG_ODD
 
-static inline void lag_basis(double px, double * coef) {
+MDSPAN_FORCE_INLINE_FUNCTION
+inline void lag_basis(double px, double * coef) {
   const double loc[] = { -1. / 24, 1. / 24., -1. / 12., 1. / 12., -1. / 24., 1. / 24. };
   const double pxm2 = px - 2.;
   const double sqrpxm2 = pxm2 * pxm2;
@@ -54,7 +56,8 @@ static inline void lag_basis(double px, double * coef) {
 #define LAG_PTS 7
 #define LAG_ODD
 
-static inline void lag_basis(const double px, double * coef) {
+MDSPAN_FORCE_INLINE_FUNCTION
+inline void lag_basis(const double px, double * coef) {
   const double loc[] = {-1. / 720, 1. / 720, -1. / 240, 1. / 144, -1. / 144, 1. / 240, -1. / 720, 1. / 720};
   const double pxm3 = px - 3.;
   const double sevenpxm3sqr = 7. * pxm3 * pxm3;
@@ -101,6 +104,7 @@ static inline void lag_basis(const double px, double * coef) {
     }
 
     // 3DRange policy over x, y, vx directions and sequential loop along vy direction
+    MDSPAN_FORCE_INLINE_FUNCTION
     void operator()(const int ix, const int iy, const int ivx) const {
       const double x  = minPhix + ix * dx;
       const double vx = minPhivx + ivx * dvx;
@@ -159,6 +163,7 @@ static inline void lag_basis(const double px, double * coef) {
     }
 
     // 3DRange policy over x, y, vx directions and sequential loop along vy direction
+    MDSPAN_FORCE_INLINE_FUNCTION
     void operator()(const int ix, const int iy, const int ivx) const {
       const double y  = minPhiy + iy * dy;
     
@@ -218,6 +223,7 @@ static inline void lag_basis(const double px, double * coef) {
     }
 
     // 3DRange policy over x, y, vx directions and sequential loop along vy direction
+    MDSPAN_FORCE_INLINE_FUNCTION
     void operator()(const int ix, const int iy, const int ivx) const {
       const double vx = minPhivx + ivx * dvx;
       const double depx = dt_ * ex_(ix, iy);
@@ -275,6 +281,7 @@ static inline void lag_basis(const double px, double * coef) {
     }
 
     // 3DRange policy over x, y, vx directions and sequential loop along vy direction
+    MDSPAN_FORCE_INLINE_FUNCTION
     void operator()(const int ix, const int iy, const int ivx) const {
       for(int ivy=0; ivy<s_nvymax; ivy++) {
         const double vy = minPhivy + ivy * dvy;
@@ -306,11 +313,14 @@ static inline void lag_basis(const double px, double * coef) {
   void advect_1D_y(const Config& conf, const RealView4D& fn, RealView4D& fnp1, float64 dt);
   void advect_1D_vx(const Config& conf, const RealView4D& fn, RealView4D& fnp1, Efield* ef, float64 dt);
   void advect_1D_vy(const Config& conf, const RealView4D& fn, RealView4D& fnp1, Efield* ef, float64 dt);
-  void print_fxvx(const Config& conf, const RealView4D& fn, int iter);
+  void print_fxvx(const Config& conf, RealView4D& fn, int iter);
 
   void advect_1D_x(const Config& conf, const RealView4D& fn, RealView4D& fnp1, float64 dt) {
     const Domain dom = conf.dom_;
-    auto [s_nxmax, s_nymax, s_nvxmax, s_nvymax] = dom.nxmax_;
+    auto [_s_nxmax, _s_nymax, _s_nvxmax, _s_nvymax] = dom.nxmax_;
+    const int s_nxmax  = static_cast<int>(_s_nxmax);
+    const int s_nymax  = static_cast<int>(_s_nymax);
+    const int s_nvxmax = static_cast<int>(_s_nvxmax);
     const auto _fn = fn.mdspan();
     auto _fnp1 = fnp1.mdspan();
 
@@ -320,7 +330,10 @@ static inline void lag_basis(const double px, double * coef) {
 
   void advect_1D_y(const Config& conf, const RealView4D& fn, RealView4D& fnp1, float64 dt) {
     const Domain dom = conf.dom_;
-    auto [s_nxmax, s_nymax, s_nvxmax, s_nvymax] = dom.nxmax_;
+    auto [_s_nxmax, _s_nymax, _s_nvxmax, _s_nvymax] = dom.nxmax_;
+    const int s_nxmax  = static_cast<int>(_s_nxmax);
+    const int s_nymax  = static_cast<int>(_s_nymax);
+    const int s_nvxmax = static_cast<int>(_s_nvxmax);
     const auto _fn = fn.mdspan();
     auto _fnp1 = fnp1.mdspan();
 
@@ -330,7 +343,10 @@ static inline void lag_basis(const double px, double * coef) {
 
   void advect_1D_vx(const Config& conf, const RealView4D& fn, RealView4D& fnp1, Efield* ef, float64 dt) {
     const Domain dom = conf.dom_;
-    auto [s_nxmax, s_nymax, s_nvxmax, s_nvymax] = dom.nxmax_;
+    auto [_s_nxmax, _s_nymax, _s_nvxmax, _s_nvymax] = dom.nxmax_;
+    const int s_nxmax  = static_cast<int>(_s_nxmax);
+    const int s_nymax  = static_cast<int>(_s_nymax);
+    const int s_nvxmax = static_cast<int>(_s_nvxmax);
     auto ex = ef->ex();
     const auto _fn = fn.mdspan();
     auto _fnp1 = fnp1.mdspan();
@@ -341,7 +357,10 @@ static inline void lag_basis(const double px, double * coef) {
   
   void advect_1D_vy(const Config& conf, const RealView4D& fn, RealView4D& fnp1, Efield* ef, float64 dt) {
     const Domain dom = conf.dom_;
-    auto [s_nxmax, s_nymax, s_nvxmax, s_nvymax] = dom.nxmax_;
+    auto [_s_nxmax, _s_nymax, _s_nvxmax, _s_nvymax] = dom.nxmax_;
+    const int s_nxmax  = static_cast<int>(_s_nxmax);
+    const int s_nymax  = static_cast<int>(_s_nymax);
+    const int s_nvxmax = static_cast<int>(_s_nvxmax);
     auto ey = ef->ey();
     const auto _fn = fn.mdspan();
     auto _fnp1 = fnp1.mdspan();
@@ -350,7 +369,7 @@ static inline void lag_basis(const double px, double * coef) {
     Impl::for_each(policy3d, advect_1D_vy_functor(conf, _fn, _fnp1, ey, dt));
   };
 
-  void print_fxvx(const Config& conf, const RealView4D& fn, int iter) {
+  void print_fxvx(const Config& conf, RealView4D& fn, int iter) {
     Domain dom = conf.dom_;
     char filename[128];
     printf("print_fxvx %d\n", iter);
@@ -359,6 +378,8 @@ static inline void lag_basis(const double px, double * coef) {
     
     const int ivy = dom.nxmax_[3] / 2;
     const int iy = 0;
+
+    fn.updateSelf();
     
     for(int ivx = 0; ivx < dom.nxmax_[2]; ivx++) {
       for(int ix = 0; ix < dom.nxmax_[0]; ix++) {

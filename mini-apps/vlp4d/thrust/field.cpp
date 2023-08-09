@@ -5,13 +5,17 @@ void lu_solve_poisson(const Config& conf, Efield* ef);
 
 void field_rho(const Config& conf, const RealView4D &fn, Efield* ef) {
   const Domain dom = conf.dom_;
-  auto [nx, ny, nvx, nvy] = dom.nxmax_;
+  auto [_nx, _ny, _nvx, _nvy] = dom.nxmax_;
+  const int nx  = static_cast<int>(_nx);
+  const int ny  = static_cast<int>(_ny);
+  const int nvx = static_cast<int>(_nvx);
+  const int nvy = static_cast<int>(_nvy);
   float64 dvx = dom.dx_[2], dvy = dom.dx_[3];
 
   const auto _fn = fn.mdspan();
   auto rho = ef->rho();
 
-  auto integral = [=](const int ix, const int iy) {
+  auto integral = [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
     float64 sum = 0.0;
     for(int ivy=0; ivy<nvy; ivy++) {
       for(int ivx=0; ivx<nvx; ivx++) {
@@ -27,7 +31,9 @@ void field_rho(const Config& conf, const RealView4D &fn, Efield* ef) {
 
 void field_poisson(const Config& conf, Efield* ef) {
   const Domain dom = conf.dom_;
-  auto [nx, ny, nvx, nvy] = dom.nxmax_;
+  auto [_nx, _ny, _nvx, _nvy] = dom.nxmax_;
+  const int nx  = static_cast<int>(_nx);
+  const int ny  = static_cast<int>(_ny);
   float64 dx = dom.dx_[0], dy = dom.dx_[1];
   float64 minPhyx = dom.minPhy_[0], minPhyy = dom.minPhy_[1];
 
@@ -41,14 +47,14 @@ void field_poisson(const Config& conf, Efield* ef) {
   {
     case 2:
         Impl::for_each(policy2d,
-          [=](const int ix, const int iy){
+          [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy){
             ex(ix, iy) = -(minPhyx + ix * dx);
             ey(ix, iy) = 0.;
           });
         break;
     case 6:
         Impl::for_each(policy2d,
-          [=](const int ix, const int iy){
+          [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy){
             ey(ix, iy) = -(minPhyy + iy * dy);
             ex(ix, iy) = 0.;
           });
@@ -56,7 +62,7 @@ void field_poisson(const Config& conf, Efield* ef) {
     case 10:
     case 20:
         Impl::for_each(policy2d,
-          [=](const int ix, const int iy){
+          [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy){
             rho(ix, iy) -= 1.;
           });
         lu_solve_poisson(conf, ef);

@@ -18,13 +18,13 @@ void Diags::compute(const Config& conf, Efield* ef, int iter) {
   auto ey  = ef->ey();
   auto rho = ef->rho();
  
-  using moment_type = std::tuple<float64, float64>;
+  using moment_type = thrust::tuple<float64, float64>;
   moment_type moments = {0, 0};
 
   Iterate_policy<2> policy2d({0, 0}, {nx, ny});
 
   auto moment_kernel =
-    [=](const int ix, const int iy) {
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iy) {
       const float64 _ex  = ex(ix, iy);
       const float64 _ey  = ey(ix, iy);
       const float64 _rho = rho(ix, iy);
@@ -33,16 +33,16 @@ void Diags::compute(const Config& conf, Efield* ef, int iter) {
   };
  
   auto binary_operator =
-    [=] (const moment_type& left, const moment_type& right) {
-      return moment_type {std::get<0>(left) + std::get<0>(right),
-                          std::get<1>(left) + std::get<1>(right),
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const moment_type& left, const moment_type& right) {
+      return moment_type {thrust::get<0>(left) + thrust::get<0>(right),
+                          thrust::get<1>(left) + thrust::get<1>(right),
                          };
   };
  
   Impl::transform_reduce(policy2d, binary_operator, moment_kernel, moments);
 
-  float64 iter_mass = std::get<0>(moments);
-  float64 iter_nrj  = std::get<1>(moments);
+  float64 iter_mass = thrust::get<0>(moments);
+  float64 iter_nrj  = thrust::get<1>(moments);
   iter_nrj = sqrt(iter_nrj * dom.dx_[0] * dom.dx_[1]);
   iter_mass *= dom.dx_[0] + dom.dx_[1];
 
