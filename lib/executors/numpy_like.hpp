@@ -14,19 +14,21 @@ namespace Impl {
             std::enable_if_t<InputView::rank()==3 && OutputView::rank()==2, std::nullptr_t> = nullptr>
   void mean_(InputView& in, OutputView& out, int axis) {
     // 3D -> 2D
-    using value_type = InputView::value_type;
+    using value_type = typename InputView::value_type;
     int reduce_dim = axis==-1 ? InputView::rank()-1 : axis;
     assert(reduce_dim < InputView::rank());
     const std::size_t reduce_size = in.extent(reduce_dim);
     const std::size_t n = in.size() / reduce_size;
-    const auto n0 = (reduce_dim==0) ? in.extent(1) : in.extent(0);
-    const auto n1 = n / n0;
+    const auto _n0 = (reduce_dim==0) ? in.extent(1) : in.extent(0);
+    const auto _n1 = n / _n0;
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
 
     // Not quite sure, this is a better strategy
     IteratePolicy<typename InputView::layout_type, 2> policy2d({0, 0}, {n0, n1});
 
     Impl::for_each(policy2d,
-      [=](const int i0, const int i1) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
         value_type sum = 0;
 
         for(int ir=0; ir < reduce_size; ir++) {
@@ -69,15 +71,16 @@ namespace Impl {
             std::enable_if_t<InputView::rank()==2 && OutputView::rank()==1, std::nullptr_t> = nullptr>
   void mean_(InputView& in, OutputView& out, int axis) {
     // 2D -> 1D
-    using value_type = InputView::value_type;
+    using value_type = typename InputView::value_type;
     int reduce_dim = axis==-1 ? InputView::rank()-1 : axis;
     assert(reduce_dim < InputView::rank());
     const std::size_t reduce_size = in.extent(reduce_dim);
-    const auto n = (reduce_dim==0) ? in.extent(1) : in.extent(0);
+    const auto _n = (reduce_dim==0) ? in.extent(1) : in.extent(0);
+    const int n = static_cast<int>(_n);
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
 
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         value_type sum = 0;
 
         for(int ir=0; ir < reduce_size; ir++) {
@@ -140,10 +143,10 @@ namespace Impl {
 
     // Inplace: 1D + 0D -> 1D (broadcasting)
     const auto n0 = x.extent(0);
-    IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, n0);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(n0);
 
     Impl::for_each(policy1d,
-      [=](const int i0) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0) {
         x(i0) = alpha * x(i0) + beta * y;
       });
   }
@@ -159,10 +162,10 @@ namespace Impl {
     assert(x.extents() == z.extents());
 
     const auto n0 = x.extent(0);
-    IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, n0);
+    IteratePolicy<typename InoutView::layout_type, 1> policy1d(n0);
 
     Impl::for_each(policy1d,
-      [=](const int i0) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0) {
         z(i0) = alpha * x(i0) + beta * y;
       });
   }
@@ -175,20 +178,21 @@ namespace Impl {
              const typename InoutView::value_type beta=1,
              const typename InoutView::value_type alpha=1) {
     // Inplace: 1D + 1D -> 1D
-    const auto nx0 = x.extent(0);
-    const auto ny0 = y.extent(0);
+    const auto _nx0 = x.extent(0), _ny0 = y.extent(0);
+    const int nx0 = static_cast<int>(_nx0);
+    const int ny0 = static_cast<int>(_ny0);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
 
       Impl::for_each(policy1d,
-        [=](const int i0) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0) {
           x(i0) = alpha * x(i0) + beta * y(i0);
         });
     } else if( ny0 == 1 && ny0 < nx0 ) {
       IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
       Impl::for_each(policy1d,
-        [=](const int i0) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0) {
           x(i0) = alpha * x(i0) + beta * y(0);
         });
     } else {
@@ -206,8 +210,9 @@ namespace Impl {
              const typename InoutView::value_type alpha=1) {
     // Outplace: 1D + 1D -> 1D
     assert(x.extents() == z.extents());
-    const auto nx0 = x.extent(0);
-    const auto ny0 = y.extent(0);
+    const auto _nx0 = x.extent(0), _ny0 = y.extent(0);
+    const int nx0 = static_cast<int>(_nx0);
+    const int ny0 = static_cast<int>(_ny0);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
@@ -219,7 +224,7 @@ namespace Impl {
     } else if( ny0 == 1 && ny0 < nx0 ) {
       IteratePolicy<typename InoutView::layout_type, 1> policy1d(0, nx0);
       Impl::for_each(policy1d,
-        [=](const int i0) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0) {
           z(i0) = alpha * x(i0) + beta * y(0);
         });
     } else {
@@ -236,11 +241,13 @@ namespace Impl {
             const typename InoutView::value_type alpha=1) {
 
     // Inplace: 2D + 0D -> 2D (broadcasting)
-    const auto n0 = x.extent(0), n1 = x.extent(1);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
     IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
 
     Impl::for_each(policy2d,
-      [=](const int i0, const int i1) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
         x(i0, i1) = alpha * x(i0, i1) + beta * y;
       });
   }
@@ -255,10 +262,12 @@ namespace Impl {
     // Outplace: 2D + 0D -> 2D (broadcasting)
     assert(x.extents() == z.extents());
 
-    const auto n0 = x.extent(0), n1 = x.extent(1);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
     IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
-      [=](const int i0, const int i1) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
         z(i0, i1) = alpha * x(i0, i1) + beta * y;
       });
   }
@@ -274,10 +283,12 @@ namespace Impl {
     // Inplace: 2D + 1D -> 2D (broadcasting)
     assert(x.extent(axis) == y.extent(0));
 
-    const auto n0 = x.extent(0), n1 = x.extent(1);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
     IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
-      [=](const int i0, const int i1) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
         x(i0, i1) = alpha * x(i0, i1) + beta * y(idx0);
       });
@@ -296,10 +307,12 @@ namespace Impl {
     assert(x.extent(axis) == y.extent(0));
     assert(x.extents() == z.extents());
 
-    const auto n0 = x.extent(0), n1 = x.extent(1);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
     IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {n0, n1});
     Impl::for_each(policy2d,
-      [=](const int i0, const int i1) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
         const auto idx0 = (axis==0) ? i0 : i1;
         z(i0, i1) = alpha * x(i0, i1) + beta * y(idx0);
       });
@@ -313,13 +326,17 @@ namespace Impl {
              const typename InoutView::value_type beta=1,
              const typename InoutView::value_type alpha=1) {
     // Inplace: 2D + 2D -> 2D
-    const auto nx0 = x.extent(0), nx1 = x.extent(1);
-    const auto ny0 = y.extent(0), ny1 = y.extent(1);
+    const auto _nx0 = x.extent(0), _nx1 = x.extent(1);
+    const auto _ny0 = y.extent(0), _ny1 = y.extent(1);
+    const int nx0 = static_cast<int>(_nx0);
+    const int nx1 = static_cast<int>(_nx1);
+    const int ny0 = static_cast<int>(_ny0);
+    const int ny1 = static_cast<int>(_ny1);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
-        [=](const int i0, const int i1) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
           x(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 ) {
@@ -331,7 +348,7 @@ namespace Impl {
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
-        [=](const int i0, const int i1) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
           x(i0, i1) = alpha * x(i0, i1) + beta * y(0, 0);
         });
     } else {
@@ -349,13 +366,17 @@ namespace Impl {
              const typename InoutView::value_type alpha=1) {
     // Outplace: 2D + 2D -> 2D
     assert(x.extents() == z.extents());
-    const auto nx0 = x.extent(0), nx1 = x.extent(1);
-    const auto ny0 = y.extent(0), ny1 = y.extent(1);
+    const auto _nx0 = x.extent(0), _nx1 = x.extent(1);
+    const auto _ny0 = y.extent(0), _ny1 = y.extent(1);
+    const int nx0 = static_cast<int>(_nx0);
+    const int nx1 = static_cast<int>(_nx1);
+    const int ny0 = static_cast<int>(_ny0);
+    const int ny1 = static_cast<int>(_ny1);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
-        [=](const int i0, const int i1) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
           z(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 ) {
@@ -367,7 +388,7 @@ namespace Impl {
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
       Impl::for_each(policy2d,
-        [=](const int i0, const int i1) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1) {
           z(i0, i1) = alpha * x(i0, i1) + beta * y(0, 0);
         });
     } else {
@@ -382,11 +403,14 @@ namespace Impl {
             const typename InoutView::value_type beta=1,
             const typename InoutView::value_type alpha=1) {
     // Inplace: 3D + 0D -> 3D (broadcasting)
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
 
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         x(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y;
       });
   }
@@ -399,10 +423,13 @@ namespace Impl {
             const typename InoutView::value_type beta=1,
             const typename InoutView::value_type alpha=1) {
     // Outplace: 3D + 0D -> 3D (broadcasting)
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         z(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y;
       });
   }
@@ -418,10 +445,13 @@ namespace Impl {
     // Inplace: 3D + 1D -> 3D (broadcasting)
     assert(x.extent(axis) == y.extent(0));
 
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         const auto idx0 = (axis==0) ? i0 :
                           (axis==1) ? i1 :
                                       i2 ;
@@ -441,10 +471,13 @@ namespace Impl {
     // Outplace: 3D + 1D -> 3D (broadcasting)
     assert(x.extent(axis) == y.extent(0));
 
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         const auto idx0 = (axis==0) ? i0 :
                           (axis==1) ? i1 :
                                       i2 ;
@@ -461,10 +494,13 @@ namespace Impl {
              const typename InoutView::value_type alpha=1,
              const int axis=0) {
     // Inplace: 3D + 2D -> 3D (broadcasting)
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         int idx0, idx1;
         if(axis==0) {
           idx0 = i1;
@@ -490,10 +526,13 @@ namespace Impl {
              const typename InoutView::value_type alpha=1,
              const int axis=0) {
     // Outplace: 3D + 2D -> 3D (broadcasting)
-    const auto n0 = x.extent(0), n1 = x.extent(1), n2 = x.extent(2);
+    const auto _n0 = x.extent(0), _n1 = x.extent(1), _n2 = x.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n1 = static_cast<int>(_n1);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {n0, n1, n2});
     Impl::for_each(policy3d,
-      [=](const int i0, const int i1, const int i2) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
         int idx0, idx1;
         if(axis==0) {
           idx0 = i1;
@@ -517,13 +556,19 @@ namespace Impl {
              typename InoutView::value_type beta=1,
              typename InoutView::value_type alpha=1) {
     // Inplace: 3D + 3D -> 3D
-    const auto nx0 = x.extent(0), nx1 = x.extent(1), nx2 = x.extent(2);
-    const auto ny0 = y.extent(0), ny1 = y.extent(1), ny2 = y.extent(2);
+    const auto _nx0 = x.extent(0), _nx1 = x.extent(1), _nx2 = x.extent(2);
+    const auto _ny0 = y.extent(0), _ny1 = y.extent(1), _ny2 = y.extent(2);
+    const int nx0 = static_cast<int>(_nx0);
+    const int nx1 = static_cast<int>(_nx1);
+    const int nx2 = static_cast<int>(_nx2);
+    const int ny0 = static_cast<int>(_ny0);
+    const int ny1 = static_cast<int>(_ny1);
+    const int ny2 = static_cast<int>(_ny2);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
       Impl::for_each(policy3d,
-        [=](const int i0, const int i1, const int i2) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
           x(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(i0, i1, i2);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == nx2 ) {
@@ -547,7 +592,7 @@ namespace Impl {
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
       Impl::for_each(policy3d,
-        [=](const int i0, const int i1, const int i2) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
           x(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(0, 0, 0);
         });
     } else {
@@ -564,13 +609,19 @@ namespace Impl {
              typename InoutView::value_type beta=1,
              typename InoutView::value_type alpha=1) {
     // Outplace: 3D + 3D -> 3D
-    const auto nx0 = x.extent(0), nx1 = x.extent(1), nx2 = x.extent(2);
-    const auto ny0 = y.extent(0), ny1 = y.extent(1), ny2 = y.extent(2);
+    const auto _nx0 = x.extent(0), _nx1 = x.extent(1), _nx2 = x.extent(2);
+    const auto _ny0 = y.extent(0), _ny1 = y.extent(1), _ny2 = y.extent(2);
+    const int nx0 = static_cast<int>(_nx0);
+    const int nx1 = static_cast<int>(_nx1);
+    const int nx2 = static_cast<int>(_nx2);
+    const int ny0 = static_cast<int>(_ny0);
+    const int ny1 = static_cast<int>(_ny1);
+    const int ny2 = static_cast<int>(_ny2);
 
     if( x.extents() == y.extents() ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
       Impl::for_each(policy3d,
-        [=](const int i0, const int i1, const int i2) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
           z(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(i0, i1, i2);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == nx2 ) {
@@ -594,7 +645,7 @@ namespace Impl {
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
       Impl::for_each(policy3d,
-        [=](const int i0, const int i1, const int i2) {
+        [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i0, const int i1, const int i2) {
           z(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(0, 0, 0);
         });
     } else {
@@ -632,14 +683,14 @@ namespace Impl {
   /* zeros_like, ones_like, identity, diag */
   template <class InoutView>
   void zeros_like(InoutView& a) {
-    using value_type = InoutView::value_type;
+    using value_type = typename InoutView::value_type;
     value_type* ptr_a = a.data_handle();
     const auto n = a.size();
 
     // Not quite sure, this is a better strategy
     IteratePolicy<typename InoutView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         ptr_a[idx] = static_cast<value_type>(0);
     });
   }
@@ -649,20 +700,20 @@ namespace Impl {
     static_assert( std::is_same_v<typename InputView::value_type, typename InputView::value_type> );
     static_assert( std::is_same_v<typename InputView::layout_type, typename InputView::layout_type> );
     assert(in.extents() == out.extents());
-    using value_type = InputView::value_type;
+    using value_type = typename InputView::value_type;
     value_type* ptr_out = out.data_handle();
     const auto n = in.size();
 
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         ptr_out[idx] = static_cast<value_type>(0);
     });
   }
 
   template <class InoutView>
   void ones_like(InoutView& a) {
-    using value_type = InoutView::value_type;
+    using value_type = typename InoutView::value_type;
     value_type* ptr_a = a.data_handle();
     const auto n = a.size();
     IteratePolicy<typename InoutView::layout_type, 1> policy1d(n);
@@ -677,12 +728,12 @@ namespace Impl {
     static_assert( std::is_same_v<typename InputView::value_type, typename InputView::value_type> );
     static_assert( std::is_same_v<typename InputView::layout_type, typename InputView::layout_type> );
     assert(in.extents() == out.extents());
-    using value_type = InputView::value_type;
+    using value_type = typename InputView::value_type;
     value_type* ptr_out = out.data_handle();
     const auto n = in.size();
     IteratePolicy<typename InputView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         ptr_out[idx] = static_cast<value_type>(1);
     });
   }
@@ -692,14 +743,14 @@ namespace Impl {
             std::enable_if_t<MatrixView::rank()==2, std::nullptr_t> = nullptr>
   void identity(MatrixView& out) {
     assert( out.extent(0) == out.extent(1) ); // Square matrix
-    using value_type = MatrixView::value_type;
+    using value_type = typename MatrixView::value_type;
 
     zeros_like(out);
     const auto n = out.extent(0);
 
     IteratePolicy<typename MatrixView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         out(idx, idx) = static_cast<value_type>(1);
     });
   }
@@ -708,14 +759,16 @@ namespace Impl {
             std::enable_if_t<MatrixView::rank()==3, std::nullptr_t> = nullptr>
   void identity(MatrixView& out) {
     assert( out.extent(0) == out.extent(1) ); // Square matrix
-    using value_type = MatrixView::value_type;
+    using value_type = typename MatrixView::value_type;
 
     zeros_like(out);
-    const auto n0 = out.extent(0), n2 = out.extent(2);
+    const auto _n0 = out.extent(0), _n2 = out.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n2 = static_cast<int>(_n2);
 
     IteratePolicy<typename MatrixView::layout_type, 2> policy2d({0, 0}, {n0, n2});
     Impl::for_each(policy2d,
-      [=](const int ix, const int iz) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iz) {
         out(ix, ix, iz) = static_cast<value_type>(1);
     });
   }
@@ -733,7 +786,7 @@ namespace Impl {
     const auto n = v.extent(0);
     IteratePolicy<typename MatrixView::layout_type, 1> policy1d(n);
     Impl::for_each(policy1d,
-      [=](const int idx) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
         out(idx, idx) = pow(v(idx), exponent);
     });
   }
@@ -748,19 +801,21 @@ namespace Impl {
     assert( out.extent(2) == v.extent(1) ); // batch size
 
     zeros_like(out);
-    const auto n0 = out.extent(0), n2 = out.extent(2);
+    const auto _n0 = out.extent(0), _n2 = out.extent(2);
+    const int n0 = static_cast<int>(_n0);
+    const int n2 = static_cast<int>(_n2);
     IteratePolicy<typename MatrixView::layout_type, 2> policy2d({0, 0}, {n0, n2});
     Impl::for_each(policy2d,
-      [=](const int ix, const int iz) {
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int ix, const int iz) {
         out(ix, ix, iz) = pow(v(ix, iz), exponent);
     });
   }
 
   template <class ViewType>
   auto squeeze(const ViewType& x, int axis=-1) {
-    using value_type = ViewType::value_type;
-    using size_type = ViewType::size_type;
-    using layout_type = ViewType::layout_type;
+    using value_type  = typename ViewType::value_type;
+    using size_type   = typename ViewType::size_type;
+    using layout_type = typename ViewType::layout_type;
     int reduce_dim = axis==-1 ? ViewType::rank()-1 : axis;
     assert(reduce_dim < ViewType::rank());
     assert(x.extent(reduce_dim) == 1);
@@ -783,9 +838,9 @@ namespace Impl {
 
   template <class ViewType, std::size_t N>
   auto reshape(const ViewType& x, const std::array<std::size_t, N>& shape) {
-    using value_type = ViewType::value_type;
-    using size_type = ViewType::size_type;
-    using layout_type = ViewType::layout_type;
+    using value_type  = typename ViewType::value_type;
+    using size_type   = typename ViewType::size_type;
+    using layout_type = typename ViewType::layout_type;
 
     const std::size_t size = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     assert( size == x.size() );
@@ -801,7 +856,6 @@ namespace Impl {
     const auto n = in.size();
     thrust::copy(thrust::device, in.data_handle(), in.data_handle()+n, out.data_handle());
   }
-
 };
 
 #endif
