@@ -27,7 +27,7 @@ then
     rm -rf build_OPENMP
     mkdir build_OPENMP && cd build_OPENMP
     cmake -DCMAKE_CXX_COMPILER=nvc++ -DBACKEND=OPENMP -DBUILD_TESTING=ON ..
-    cmake --build . -j 8
+    cmake --build . -j 4
     cd ../wk/
 fi
 
