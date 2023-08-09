@@ -9,7 +9,7 @@ void allocate_inside_function(RealView2D& reference_to_a_View, const int n, cons
   Iterate_policy<2> policy2d({0, 0}, {n, m});
   auto _reference_to_a_View = reference_to_a_View.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _reference_to_a_View(i, j) = i + j * 0.2 + 0.01;
     });
 }
@@ -23,7 +23,7 @@ void set_inside_function(RealView2D shallow_copy_to_a_View) {
 
   auto _shallow_copy_to_a_View = shallow_copy_to_a_View.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _shallow_copy_to_a_View(i, j) = i + j * 0.2 + 0.01;
     });
 }
@@ -42,7 +42,7 @@ void test_copy_constructor() {
 
   auto _reference = reference.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _reference(i, j) = i + j * 0.2 + 0.01;
     });
 
@@ -75,7 +75,7 @@ void test_assignment_operator() {
   auto _reference = reference.mdspan();
   auto _simple = simple.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _reference(i, j) = i + j * 0.2 + 0.01;
       _simple(i, j) = i + j * 0.2 + 0.01;
     });
@@ -107,7 +107,7 @@ void test_move_constructor() {
   auto _reference = reference.mdspan();
   auto _moved_reference = moved_reference.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _moved_reference(i, j) = i + j * 0.2 + 0.01;
       _reference(i, j) = _moved_reference(i, j);
     });
@@ -150,7 +150,7 @@ void test_move_assignment_operator() {
 
   auto _reference = reference.mdspan();
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _reference(i, j) = i + j * 0.2 + 0.01;
     });
 
@@ -185,7 +185,7 @@ void test_swap() {
   auto _b_ref = b_ref.mdspan();
 
   Impl::for_each(policy2d,
-    [=] (const int i, const int j){
+    [=] MDSPAN_FORCE_INLINE_FUNCTION (const int i, const int j) {
       _a(i, j) = i + j * 0.2 + 0.01;
       _b(i, j) = i *0.3 + j * 0.5 + 0.01;
 
