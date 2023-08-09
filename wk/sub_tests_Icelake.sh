@@ -1,10 +1,10 @@
 #!/bin/bash
 #PJM -L "node=1"
 #PJM -L "rscgrp=regular-a"
-#PJM -L "elapse=30:00"
+#PJM -L "elapse=60:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=4
+#PJM --mpi proc=1
 
 . /etc/profile.d/modules.sh # Initialize module command
 
