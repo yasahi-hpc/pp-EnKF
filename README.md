@@ -9,7 +9,7 @@
 
 
 pp-LETKF is the performance portable implementation of local ensemble transform Kalman filter (LETKF). 
-We use C++ parallel algorithms (_stdpar), C++ [_senders/receivers](https://github.com/NVIDIA/stdexec) and [_mdspan_](https://github.com/kokkos/mdspan) for performance, portablity and productivitiy (P3).
+We use C++ parallel algorithms (_stdpar_), C++ [_senders/receivers_](https://github.com/NVIDIA/stdexec) and [_mdspan_](https://github.com/kokkos/mdspan) for performance, portablity and productivitiy (P3).
 Highly optimized CUDA version is found at [LBM2D-LETKF](https://github.com/hasegawa-yuta-jaea/LBM2D-LETKF).
 For questions or comments, please find us in the [AUTHORS](AUTHORS) file.
 
