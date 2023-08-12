@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <utils/string_utils.hpp>
 #include <utils/commandline_utils.hpp>
 #include <utils/device_utils.hpp>
 #include "../timer.hpp"
@@ -182,6 +183,8 @@ private:
     }
 
     // Saving json file to output directory
+    const int n_ens = mpi_conf_.size();
+    io_conf_.case_name_ = sim_type_ == "letkf" ? io_conf_.case_name_ + "_ens" + Impl::zfill(n_ens, 3) : io_conf_.case_name_;
     if(mpi_conf_.is_master()) {
       const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
       const std::string performance_dir = out_dir + "/" + "performance";

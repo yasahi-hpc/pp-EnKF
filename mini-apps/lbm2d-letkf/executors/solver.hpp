@@ -6,12 +6,14 @@
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <utils/string_utils.hpp>
 #include <utils/commandline_utils.hpp>
 #include "../timer.hpp"
 #include "../config.hpp"
 #include "../io_config.hpp"
 #include "../mpi_config.hpp"
 #include "models.hpp"
+#include "letkf.hpp"
 #include "model_factories.hpp"
 #include "data_vars.hpp"
 
@@ -24,6 +26,7 @@ class Solver {
   std::string sim_type_;
   std::unique_ptr<Model> model_;
   std::unique_ptr<DA_Model> da_model_;
+  std::unique_ptr<LETKF> letkf_;
   std::unique_ptr<DataVars> data_vars_;
   std::vector<Timer*> timers_;
 
@@ -48,6 +51,10 @@ public:
     data_vars_ = std::move( std::unique_ptr<DataVars>(new DataVars(conf_)) );
     model_     = std::move( model_factory(sim_type_, conf_, io_conf_) );
     da_model_  = std::move( da_model_factory(sim_type_, conf_, io_conf_, mpi_conf_) );
+    if(sim_type_ == "letkf") {
+      letkf_ = std::move( std::unique_ptr<LETKF>(new LETKF(conf_, io_conf_, mpi_conf_)) );
+      letkf_->initialize();
+    }
 
     model_->initialize(data_vars_);
     da_model_->initialize();
@@ -68,11 +75,27 @@ public:
   };
 
   void run(){
+    #if defined(ENABLE_OPENMP)
+      exec::static_thread_pool pool{std::thread::hardware_concurrency()};
+      auto scheduler = pool.get_scheduler();
+    #else
+      nvexec::stream_context stream_ctx{};
+      auto scheduler = stream_ctx.get_scheduler();
+    #endif
+
+    exec::static_thread_pool io_thread_pool{std::thread::hardware_concurrency()};
+    auto io_scheduler = io_thread_pool.get_scheduler();
+
     timers_[TimerEnum::Total]->begin();
     for(int it=0; it<conf_.settings_.nbiter_; it++) {
       timers_[TimerEnum::MainLoop]->begin();
 
-      da_model_->apply(data_vars_, it, timers_);
+      if(sim_type_ == "letkf") {
+        letkf_->apply(scheduler, io_scheduler, data_vars_, it, timers_);
+      } else {
+        da_model_->apply(data_vars_, it, timers_);
+      }
+
       if(!conf_.settings_.disable_output_) {
         model_->diag(data_vars_, it, timers_);
       }
@@ -188,6 +211,8 @@ private:
     }
 
     // Saving json file to output directory
+    const int n_ens = mpi_conf_.size();
+    io_conf_.case_name_ = sim_type_ == "letkf" ? io_conf_.case_name_ + "_ens" + Impl::zfill(n_ens, 3) : io_conf_.case_name_;
     if(mpi_conf_.is_master()) {
       const std::string out_dir = io_conf_.base_dir_ + "/" + io_conf_.case_name_;
       const std::string performance_dir = out_dir + "/" + "performance";

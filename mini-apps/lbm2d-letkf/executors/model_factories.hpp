@@ -6,7 +6,6 @@
 #include "../io_config.hpp"
 #include "../mpi_config.hpp"
 #include "nudging.hpp"
-#include "letkf.hpp"
 #include "lbm2d.hpp"
 
 static std::unique_ptr<Model> model_factory(std::string model, Config& conf, IOConfig& io_conf) {
@@ -20,8 +19,6 @@ static std::unique_ptr<Model> model_factory(std::string model, Config& conf, IOC
 static std::unique_ptr<DA_Model> da_model_factory(std::string da_model, Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf) {
   if(da_model == "nudging") {
     return std::unique_ptr<Nudging>(new Nudging(conf, io_conf));
-  } else if(da_model == "letkf") {
-    return std::unique_ptr<LETKF>(new LETKF(conf, io_conf, mpi_conf));
   }
   return std::unique_ptr<NonDA>(new NonDA(conf, io_conf));
 };
