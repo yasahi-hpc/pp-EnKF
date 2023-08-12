@@ -3,24 +3,29 @@
 
 #include <executors/Parallel_For.hpp>
 #include <executors/Transpose.hpp>
+#include <utils/string_utils.hpp>
 #include <utils/mpi_utils.hpp>
+#include <utils/file_utils.hpp>
+#include <utils/io_utils.hpp>
 #include "letkf_solver.hpp"
 #include "../functors.hpp"
 #include "../da_functors.hpp"
-#include "da_models.hpp"
-
-namespace stdex = std::experimental;
-
 #include "nvexec/stream_context.cuh"
 #include <exec/static_thread_pool.hpp>
 #include <stdexec/execution.hpp>
 #include <exec/async_scope.hpp>
 #include <exec/on.hpp>
 
-class LETKF : public DA_Model {
+namespace stdex = std::experimental;
+
+class LETKF {
 private:
   using value_type = RealView2D::value_type;
+  Config conf_;
+  IOConfig io_conf_;
   MPIConfig mpi_conf_;
+  std::string base_dir_name_;
+  bool load_to_device_ = true;
 
   Impl::blasHandle_t blas_handle_;
   std::unique_ptr<LETKFSolver> letkf_solver_;
@@ -40,9 +45,27 @@ private:
 
 public:
   LETKF(Config& conf, IOConfig& io_conf)=delete;
-  LETKF(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf) : DA_Model(conf, io_conf), mpi_conf_(mpi_conf) {}
+  LETKF(Config& conf, IOConfig& io_conf, MPIConfig& mpi_conf)
+    : conf_(conf), io_conf_(io_conf), mpi_conf_(mpi_conf) {
+    base_dir_name_ = io_conf_.base_dir_ + "/" + io_conf_.in_case_name_ + "/observed/ens0000";
+  }
 
   virtual ~LETKF(){ blas_handle_.destroy(); }
+
+  void setFileInfo() {
+    int nb_expected_files = conf_.settings_.nbiter_ / conf_.settings_.io_interval_;
+    std::string variables[3] = {"rho", "u", "v"};
+    for(int it=0; it<nb_expected_files; it++) {
+      for(const auto& variable: variables) {
+        auto step = it * conf_.settings_.io_interval_;
+        auto file_name = base_dir_name_ + "/" + variable + "_obs_step" + Impl::zfill(step, 10) + ".dat";
+        if(!Impl::isFileExists(file_name)) {
+          std::runtime_error("Expected observation file does not exist." + file_name);
+        }
+      }
+    }
+  }
+
   void initialize() {
     setFileInfo();
 
@@ -88,7 +111,12 @@ public:
     blas_handle_.create();
   }
 
-  void apply(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers){
+  template <class Scheduler, class IO_Scheduler>
+  void apply(Scheduler&& scheduler, 
+             IO_Scheduler&& io_scheduler,
+             std::unique_ptr<DataVars>& data_vars, 
+             const int it, 
+             std::vector<Timer*>& timers){
     if(it == 0 || it % conf_.settings_.da_interval_ != 0) return;
 
     if(mpi_conf_.is_master()) {
@@ -96,7 +124,7 @@ public:
     }
 
     if(is_async_) {
-      apply_async(data_vars, it, timers);
+      apply_async(scheduler, io_scheduler, data_vars, it, timers);
     } else {
       apply_sync(data_vars, it, timers);
     }
@@ -104,29 +132,42 @@ public:
 
 private:
   // Asynchronous implementation with senders/receivers
-  void apply_async(std::unique_ptr<DataVars>& data_vars, const int it, std::vector<Timer*>& timers) {
-    #if defined(ENABLE_OPENMP)
-      exec::static_thread_pool pool{std::thread::hardware_concurrency()};
-      auto scheduler = pool.get_scheduler();
-    #else
-      nvexec::stream_context stream_ctx{};
-      auto scheduler = stream_ctx.get_scheduler();
-    #endif
-
+  template <class Scheduler, class IO_Scheduler>
+  void apply_async(Scheduler&& scheduler,
+                   IO_Scheduler&& io_scheduler,
+                   std::unique_ptr<DataVars>& data_vars,
+                   const int it,
+                   std::vector<Timer*>& timers) {
     exec::async_scope scope;
-    exec::static_thread_pool io_thread_pool{std::thread::hardware_concurrency()};
-    auto io_scheduler = io_thread_pool.get_scheduler();
-    auto _load = stdexec::just() |
+    auto _load_rho = stdexec::just() |
       stdexec::then([&]{
-        timers[DA_Load]->begin();
+        timers[DA_Load_rho]->begin();
         if(mpi_conf_.is_master()) {
-          load(data_vars, it);
+          load(data_vars, "rho", it);
         }
-        timers[DA_Load]->end();
+        timers[DA_Load_rho]->end();
+      });
+
+    auto _load_u = stdexec::just() |
+      stdexec::then([&]{
+        timers[DA_Load_u]->begin();
+        if(mpi_conf_.is_master()) {
+          load(data_vars, "u", it);
+        }
+        timers[DA_Load_u]->end();
+      });
+
+    auto _load_v = stdexec::just() |
+      stdexec::then([&]{
+        timers[DA_Load_v]->begin();
+        if(mpi_conf_.is_master()) {
+          load(data_vars, "v", it);
+        }
+        timers[DA_Load_v]->end();
       });
 
     timers[TimerEnum::DA]->begin();
-    scope.spawn(stdexec::on(io_scheduler, std::move(_load)));
+    scope.spawn(stdexec::on(io_scheduler, std::move(_load_rho)));
 
     // set X
     const auto f = data_vars->f().mdspan();
@@ -171,30 +212,51 @@ private:
     Impl::transpose(blas_handle_, yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
     timers[DA_Unpack_Y]->end();
 
-    stdexec::sync_wait( scope.on_empty() );
+    stdexec::sync_wait( scope.on_empty() ); // load rho only
+    scope.spawn(stdexec::on(io_scheduler, std::move(_load_u)));
+    scope.spawn(stdexec::on(io_scheduler, std::move(_load_v)));
 
-    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
     if(!load_to_device_) {
-      timers[DA_Load_H2D]->begin();
+      timers[DA_Load_H2D_rho]->begin();
       if(mpi_conf_.is_master()) {
         data_vars->rho_obs().updateDevice();
+      }
+      timers[DA_Load_H2D_rho]->end();
+    }
+    auto rho_obs = data_vars->rho_obs().mdspan();
+    timers[DA_Broadcast_rho]->begin();
+    broadcast(rho_obs);
+    timers[DA_Broadcast_rho]->end();
+
+    stdexec::sync_wait( scope.on_empty() ); // load u and v
+    if(!load_to_device_) {
+      timers[DA_Load_H2D_u]->begin();
+      if(mpi_conf_.is_master()) {
         data_vars->u_obs().updateDevice();
+      }
+      timers[DA_Load_H2D_u]->end();
+
+      timers[DA_Load_H2D_v]->begin();
+      if(mpi_conf_.is_master()) {
         data_vars->v_obs().updateDevice();
       }
-      timers[DA_Load_H2D]->end();
+      timers[DA_Load_H2D_v]->end();
     }
+
+    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
 
     // set yo
     auto _broadcast = stdexec::just() |
       stdexec::then([&]{
-        auto rho_obs = data_vars->rho_obs().mdspan();
         auto u_obs   = data_vars->u_obs().mdspan();
         auto v_obs   = data_vars->v_obs().mdspan();
-        timers[DA_Broadcast]->begin();
-        broadcast(rho_obs);
+        timers[DA_Broadcast_u]->begin();
         broadcast(u_obs);
+        timers[DA_Broadcast_u]->end();
+
+        timers[DA_Broadcast_v]->begin();
         broadcast(v_obs);
-        timers[DA_Broadcast]->end();
+        timers[DA_Broadcast_v]->end();
       });
 
     auto _axpy_and_braodcast = stdexec::when_all(
@@ -382,6 +444,31 @@ private:
               mpi_conf_.comm());
   }
 
+  void load(std::unique_ptr<DataVars>& data_vars, const int it) {
+    from_file(data_vars->rho_obs(), it);
+    from_file(data_vars->u_obs(), it);
+    from_file(data_vars->v_obs(), it);
+  }
+ 
+  void load(std::unique_ptr<DataVars>& data_vars, const std::string variable, const int it) {
+    if(variable == "rho") {
+      from_file(data_vars->rho_obs(), it);
+    } else if(variable == "u") {
+      from_file(data_vars->u_obs(), it);
+    } else if(variable == "v") {
+      from_file(data_vars->v_obs(), it);
+    }
+  }
+ 
+  template <class ViewType>
+  void from_file(ViewType& value, const int step) {
+    auto file_name = base_dir_name_ + "/" + value.name() + "_step" + Impl::zfill(step, 10) + ".dat";
+    auto mdspan = value.host_mdspan();
+    Impl::from_binary(file_name, mdspan);
+    if(load_to_device_) {
+      value.updateDevice();
+    }
+  }
 };
 
 #endif
