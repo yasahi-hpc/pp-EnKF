@@ -18,16 +18,16 @@ For questions or comments, please find us in the [AUTHORS](AUTHORS) file.
 In order to try this repo, following setups are needed.
 1. Clone this repo
 ```
-git clone --recursive https://github.com/yasahi-hpc/executor_testing.git
+git clone --recursive https://github.com/yasahi-hpc/pp-EnKF.git
 ```
-2. Download and install the [NVIDIA HPC SDK starting with 22.11](https://developer.nvidia.com/nvidia-hpc-sdk-releases)
+2. Download and install the [NVIDIA HPC SDK starting with 23.3](https://developer.nvidia.com/nvidia-hpc-sdk-releases)
 
 ## Requirements
 This software relies on external libraries including [`stdexec`](https://github.com/NVIDIA/stdexec), [`eigen`](https://gitlab.com/libeigen/eigen), [`json`](https://github.com/nlohmann/json), [`mdspan`](https://github.com/kokkos/mdspan) and [`googletest`](https://github.com/google/googletest) (optional, for unit testing). These libraries are included as submodules. CUDA-Aware-MPI or ROCm-Aware-MPI are also needed for NVIDIA and AMD GPUs. In the following, we assume that MPI libraries are appropriately installed.
 
 For compilers and CMake, we need the following:
 * gcc11+ (c++20 support is necessary)
-* nvc++22.11+ (for NVIDIA GPUs)
+* nvc++23.3+ (for NVIDIA GPUs)
 * rocm5.4.3+ (for AMD GPUs)
 * CMake3.22.1+
 
