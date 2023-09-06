@@ -91,7 +91,11 @@ public:
       timers_[TimerEnum::MainLoop]->begin();
 
       if(sim_type_ == "letkf") {
-        letkf_->apply(scheduler, io_scheduler, data_vars_, it, timers_);
+        letkf_->apply(std::forward<decltype(scheduler)>(scheduler),
+                      std::forward<decltype(io_scheduler)>(io_scheduler),
+                      data_vars_,
+                      it,
+                      timers_);
       } else {
         da_model_->apply(data_vars_, it, timers_);
       }
