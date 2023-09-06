@@ -111,9 +111,8 @@ public:
     blas_handle_.create();
   }
 
-  template <class Scheduler, class IO_Scheduler>
-  void apply(Scheduler&& scheduler, 
-             IO_Scheduler&& io_scheduler,
+  void apply(stdexec::scheduler auto&& scheduler,
+             stdexec::scheduler auto&& io_scheduler,
              std::unique_ptr<DataVars>& data_vars, 
              const int it, 
              std::vector<Timer*>& timers){
@@ -124,7 +123,11 @@ public:
     }
 
     if(is_async_) {
-      apply_async(scheduler, io_scheduler, data_vars, it, timers);
+      apply_async(std::forward<decltype(scheduler)>(scheduler),
+                  std::forward<decltype(io_scheduler)>(io_scheduler),
+                  data_vars,
+                  it,
+                  timers);
     } else {
       apply_sync(data_vars, it, timers);
     }
@@ -132,9 +135,8 @@ public:
 
 private:
   // Asynchronous implementation with senders/receivers
-  template <class Scheduler, class IO_Scheduler>
-  void apply_async(Scheduler&& scheduler,
-                   IO_Scheduler&& io_scheduler,
+  void apply_async(stdexec::scheduler auto&& scheduler,
+                   stdexec::scheduler auto&& io_scheduler,
                    std::unique_ptr<DataVars>& data_vars,
                    const int it,
                    std::vector<Timer*>& timers) {
