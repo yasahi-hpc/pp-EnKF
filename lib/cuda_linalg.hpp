@@ -228,6 +228,11 @@ namespace Impl {
       cublasCreate(&handle_);
     }
 
+    template <class StreamType>
+    void set_stream(StreamType stream) {
+      cublasSetStream(handle_, stream);
+    }
+
     void destroy() {
       cublasDestroy(handle_);
     }
@@ -269,6 +274,11 @@ namespace Impl {
       info_.resize(batchSize, 0);
     }
 
+    template <class StreamType>
+    void set_stream(StreamType stream) {
+      cusolverDnSetStream(handle_, stream);
+    }
+
     void destroy() {
       cusolverDnDestroy(handle_);
     }
@@ -298,7 +308,7 @@ namespace Impl {
     const auto Ak = _transa == "N" ? A.extent(1) : A.extent(0);
     const auto Bk = _transb == "N" ? B.extent(0) : B.extent(1);
     assert(Ak == Bk);
-  
+
     auto status = gemmStridedBatched(blas_handle.handle_,
                                      transa,
                                      transb,

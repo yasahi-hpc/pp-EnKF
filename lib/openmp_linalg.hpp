@@ -11,6 +11,9 @@ namespace Impl {
   struct blasHandle_t {
   public:
     void create() {}
+
+    template <class StreamType>
+    void set_stream(StreamType stream) {}
     void destroy() {}
   };
 
@@ -20,6 +23,10 @@ namespace Impl {
     template <class MatrixView, class VectorView,
               std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
     void create(MatrixView& a, VectorView& v, T tol=1.0e-7, int max_sweeps=100, int sort_eig=0) {}
+
+    template <class StreamType>
+    void set_stream(StreamType stream) {}
+
     void destroy() {}
   };
 
