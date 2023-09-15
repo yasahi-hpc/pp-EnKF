@@ -131,6 +131,48 @@ stdexec::sender auto deep_copy_sender(Sender&& sender, Scheduler&& scheduler, co
     );
 }
 
+template <class Sender, class Scheduler, class InoutView>
+stdexec::sender auto zeros_like_sender(Sender&& sender, Scheduler&& scheduler, InoutView& a) {
+  using value_type = typename InoutView::value_type;
+  value_type* ptr_a = a.data_handle();
+  const auto n = a.size();
+
+  return sender |
+    exec::on(scheduler, stdexec::bulk(n,
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
+        ptr_a[idx] = static_cast<value_type>(0);
+      })
+    );
+}
+
+template <class Sender, class Scheduler, class MatrixView, class VectorView,
+          std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
+stdexec::sender auto diag_sender(Sender&& sender,
+                                 Scheduler&& scheduler,
+                                 const VectorView& v,
+                                 MatrixView& out,
+                                 typename MatrixView::value_type exponent=1) {
+  static_assert( std::is_same_v<typename MatrixView::value_type, typename VectorView::value_type> );
+  static_assert( std::is_same_v<typename MatrixView::layout_type, typename VectorView::layout_type> );
+  assert( v.extent(0) == out.extent(0) );
+  assert( out.extent(0) == out.extent(1) ); // Square matrix
+  assert( out.extent(2) == v.extent(1) ); // batch size
+
+  const auto n0 = out.extent(0), n2 = out.extent(2);
+  const auto n = n0 * n2;
+
+  auto _zeros_like_sender = zeros_like_sender(sender, scheduler, out);
+
+  return _zeros_like_sender |
+    exec::on(scheduler, stdexec::bulk(n,
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
+        const int ix = idx % n0;
+        const int iz = idx / n0;
+        out(ix, ix, iz) = pow(v(ix, iz), exponent);
+      })
+    );
+}
+
 using letkf_config_type = std::tuple<std::size_t, std::size_t, std::size_t, std::size_t, double>;
 
 class LETKFSolver {
@@ -139,7 +181,7 @@ private:
   using value_type = RealView2D::value_type;
   Impl::blasHandle_t blas_handle_;
   Impl::syevjHandle_t<value_type> syevj_handle_;
-  
+
   RealView3D X_, dX_; // (n_stt, n_ens, n_batch)
   RealView3D Y_, dY_; // (n_obs, n_ens, n_batch)
 
@@ -154,7 +196,7 @@ private:
   RealView2D d_; // (n_ens, n_batch)
   RealView3D inv_D_; // (n_ens, n_ens, n_batch)
   RealView3D P_; // (n_ens, n_ens, n_batch)
- 
+
   RealView3D rR_; // (n_obs, n_obs, n_batch) (rho o R)^-1
   RealView3D w_; // (n_ens, 1, n_batch)
   RealView3D W_; // (n_ens, n_ens, n_batch)
@@ -171,9 +213,10 @@ private:
   std::size_t n_batch_;
 
   value_type beta_; // covariance inflation
+  cudaStream_t stream_;
 
 public:
-  LETKFSolver(const letkf_config_type& letkf_config) {
+  LETKFSolver(const letkf_config_type& letkf_config) : stream_(0) {
     n_ens_   = std::get<0>(letkf_config);
     n_stt_   = std::get<1>(letkf_config);
     n_obs_   = std::get<2>(letkf_config);
@@ -196,9 +239,15 @@ public:
   auto& y_obs() { return yo_; }
   auto& rR() { return rR_; }
 
+  // Setters
+  void set_stream(cudaStream_t stream) {
+    stream_ = stream;
+    blas_handle_.set_stream(stream_);
+    syevj_handle_.set_stream(stream_);
+  }
+
 public:
-  template <class Scheduler>
-  stdexec::sender auto solve_axpy_sender(Scheduler&& scheduler) {
+  stdexec::sender auto solve_axpy_sender(stdexec::scheduler auto&& scheduler) {
     auto X = X_.mdspan();
     auto Y = Y_.mdspan();
     auto dX = dX_.mdspan();
@@ -212,37 +261,58 @@ public:
     auto _subtractXmean_sender = axpy_sender(_meanX_sender, scheduler, X, x_mean, dX, -1);
     auto _meanY_sender = mean_sender(_subtractXmean_sender, scheduler, Y, y_mean, 1);
     auto _subtractYmean_sender = axpy_sender(_meanY_sender, scheduler, Y, y_mean, dY, -1);
-    auto _deep_copy_sender = deep_copy_sender(_subtractYmean_sender, scheduler, I, Q);
-
-    return _deep_copy_sender;
-  }
-
-  void solve_axpy() {
-    auto X = X_.mdspan();
-    auto Y = Y_.mdspan();
-    auto dX = dX_.mdspan();
-    auto dY = dY_.mdspan();
-    auto x_mean = x_mean_.mdspan();
-    auto y_mean = y_mean_.mdspan();
-
-    // Ensemble average
-    Impl::mean(X, x_mean, 1); // (n_stt, n_ens, n_batch) -> (n_stt, 1, n_batch)
-    Impl::mean(Y, y_mean, 1); // (n_obs, n_ens, n_batch) -> (n_obs, 1, n_batch)
-
-    // dX = X - mean(X), dY = Y - mean(Y)
-    Impl::axpy(X, x_mean, dX, -1); // (n_stt, n_ens, n_batch) - (n_stt, 1, n_batch) -> (n_stt, n_ens, n_batch)
-    Impl::axpy(Y, y_mean, dY, -1); // (n_obs, n_ens, n_batch) - (n_obs, 1, n_batch) -> (n_obs, n_ens, n_batch)
+    auto _deep_copy_I2Q_sender = deep_copy_sender(_subtractYmean_sender, scheduler, I, Q);
 
     // Q = (Ne-1)I/beta + dY^T * rR * dY
     auto rR = rR_.mdspan(); // (n_obs, n_obs, n_batch)
-    auto I = I_.mdspan();
-    auto Q = Q_.mdspan();
     auto tmp_oe = tmp_oe_.mdspan();
+
     const value_type beta = (static_cast<int>(n_ens_) - 1) / beta_;
-    Impl::deep_copy(I, Q); // (n_ens, n_ens, n_batch)
+    auto _blas_dY_sender = _deep_copy_I2Q_sender
+                         | stdexec::then([=, this]{
+                             Impl::matrix_matrix_product(blas_handle_, rR, dY, tmp_oe, "N", "N");
+                             Impl::matrix_matrix_product(blas_handle_, dY, tmp_oe, Q, "T", "N", 1, beta);
+                           });
+
+    // Q = V * diag(d) * V^T
+    auto d = d_.mdspan();
+    auto V = V_.mdspan();
+    auto _deep_copy_Q2V_sender = deep_copy_sender(_blas_dY_sender, scheduler, Q, V);
+    auto _evd_sender = _deep_copy_Q2V_sender | stdexec::then([=, this]{ Impl::eig(syevj_handle_, V, d); });
+
+    return _evd_sender;
   }
 
-  void solve_evd() {
+  stdexec::sender auto solve_gemm_sender(stdexec::scheduler auto&& scheduler) {
+    // P = V * inv(d) * V^T
+    // P: (n_ens, n_ens, n_batch)
+    auto d = d_.mdspan();
+    auto V = V_.mdspan();
+    auto inv_D = inv_D_.mdspan();
+    auto tmp_ee = tmp_ee_.mdspan();
+    auto P = P_.mdspan();
+
+    auto _diag_inv_D_sender = diag_sender(stdexec::just(), scheduler, d, inv_D, -1);
+    auto _blas_V_sender = _diag_inv_D_sender
+                        | stdexec::then([=, this]{
+                            Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T");
+                            Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, P, "N", "N");
+                          });
+
+    auto _diag_inv_sq_D_sender = diag_sender(_blas_V_sender, scheduler, d, inv_D, -0.5);
+
+    auto W = W_.mdspan();
+    const value_type alpha = sqrt(static_cast<int>(n_ens_) - 1);
+    auto _blas_W_sender = _diag_inv_sq_D_sender
+                        | stdexec::then([=, this]{
+                            Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T");
+                            Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, W, "N", "N", alpha);
+                          });
+
+    return _blas_W_sender;
+  }
+
+  void solve_update() {
     auto X = X_.mdspan();
     auto dX = dX_.mdspan();
     auto dY = dY_.mdspan();
@@ -253,30 +323,9 @@ public:
     // dyo = yo - mean(Y)
     Impl::axpy(yo, y_mean, -1); // (n_obs, 1, n_batch)
 
-    // Q = (Ne-1)I/beta + dY^T * rR * dY
-    auto rR = rR_.mdspan(); // (n_obs, n_obs, n_batch)
-    auto Q = Q_.mdspan();
-    auto tmp_oe = tmp_oe_.mdspan();
-    const value_type beta = (static_cast<int>(n_ens_) - 1) / beta_;
-    Impl::matrix_matrix_product(blas_handle_, rR, dY, tmp_oe, "N", "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_obs, n_ens, n_batch)
-    Impl::matrix_matrix_product(blas_handle_, dY, tmp_oe, Q, "T", "N", 1, beta); // (n_ens, n_obs, n_batch) * (n_obs, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-
-    // Q = V * diag(d) * V^T
-    auto d = d_.mdspan();
-    auto V = V_.mdspan();
-    Impl::deep_copy(Q, V);
-    Impl::eig(syevj_handle_, V, d); // (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch), (n_ens, n_batch)
-
-    // P = V * inv(d) * V^T
-    // P: (n_ens, n_ens, n_batch)
-    auto inv_D = inv_D_.mdspan();
-    auto tmp_ee = tmp_ee_.mdspan();
-    auto P = P_.mdspan();
-    Impl::diag(d, inv_D, -1); // (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, P, "N", "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-
     // w = P * (dY^T * inv(R) * dyo)
+    auto rR = rR_.mdspan(); // (n_obs, n_obs, n_batch)
+    auto P = P_.mdspan();
     auto w  = w_.mdspan();
     auto tmp_o = tmp_o_.mdspan();
     auto tmp_e = tmp_e_.mdspan();
@@ -285,18 +334,14 @@ public:
     Impl::matrix_vector_product(blas_handle_, rR, dyo, tmp_o, "N"); // (n_obs, n_obs, n_batch) * (n_obs, n_batch) -> (n_obs, n_batch)
     Impl::matrix_vector_product(blas_handle_, dY, tmp_o, tmp_e, "T"); // (n_ens, n_obs, n_batch) * (n_obs, n_batch) -> (n_ens, n_batch)
     Impl::matrix_vector_product(blas_handle_, P, tmp_e, _w, "N"); // (n_ens, n_ens, n_batch) * (n_ens, n_batch) -> (n_ens, n_batch)
-
-    // W = sqrt(Ne-1) * V * inv(sqrt(D)) * V^T
-    auto W = W_.mdspan();
-    const value_type alpha = sqrt(static_cast<int>(n_ens_) - 1);
-    Impl::diag(d, inv_D, -0.5); // (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(blas_handle_, inv_D, V, tmp_ee, "N", "T"); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
-    Impl::matrix_matrix_product(blas_handle_, V, tmp_ee, W, "N", "N", alpha); // (n_ens, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_ens, n_ens, n_batch)
+    sync();
 
     // W = W + w
     // Xsol = x_mean + matmat(dX, W)
+    auto W = W_.mdspan();
     Impl::axpy(W, w); // (n_ens, n_ens, n_batch) + (n_ens, 1, n_batch) -> (n_ens, n_ens, n_batch)
     Impl::matrix_matrix_product(blas_handle_, dX, W, X, "N", "N"); // (n_stt, n_ens, n_batch) * (n_ens, n_ens, n_batch) -> (n_stt, n_ens, n_batch)
+    sync();
     Impl::axpy(X, x_mean); // (n_stt, n_ens, n_batch) + (n_stt, 1, n_batch) -> (n_stt, n_ens, n_batch)
   }
 
@@ -407,6 +452,10 @@ private:
     auto V = V_.mdspan();
     blas_handle_.create();
     syevj_handle_.create(V, d);
+  }
+
+  void sync() {
+    cudaStreamSynchronize(stream_);
   }
 };
 

@@ -29,8 +29,8 @@ private:
 
   Impl::blasHandle_t blas_handle_;
   std::unique_ptr<LETKFSolver> letkf_solver_;
-  
-  /* Views before transpose */ 
+
+  /* Views before transpose */
   RealView3D xk_; // (n_stt, n_batch, n_ens) = (n_stt, nx*ny)
   RealView3D xk_buffer_; // (n_stt, n_batch, n_ens)
   RealView3D yk_; // (n_obs, n_batch, n_ens) = (n_obs, nx*ny)
@@ -42,6 +42,7 @@ private:
   int n_obs_x_;
   int n_obs_;
   bool is_async_ = false;
+  cudaStream_t stream_;
 
 public:
   LETKF(Config& conf, IOConfig& io_conf)=delete;
@@ -100,7 +101,7 @@ public:
     const auto beta = conf_.settings_.beta_;
     letkf_config_type letkf_config = {n_ens, n_stt, n_obs, n_batch, beta};
     letkf_solver_ = std::move( std::unique_ptr<LETKFSolver>(new LETKFSolver(letkf_config)) ); 
-    
+
     auto rR = letkf_solver_->rR().mdspan();
     const int ny_local = ny/mpi_conf_.size();
     const int y_offset = ny_local * mpi_conf_.rank();
@@ -109,6 +110,12 @@ public:
     Impl::for_each(policy3d, initialize_rR_functor(conf_, y_offset, rR));
 
     blas_handle_.create();
+  }
+
+  template <class StreamType>
+  void set_stream(StreamType stream) {
+    stream_ = stream;
+    letkf_solver_->set_stream(stream);
   }
 
   void apply(stdexec::scheduler auto&& scheduler,
@@ -140,7 +147,7 @@ private:
                    std::unique_ptr<DataVars>& data_vars,
                    const int it,
                    std::vector<Timer*>& timers) {
-    exec::async_scope scope;
+    exec::async_scope scope0, scope1, scope2;
     auto _load_rho = stdexec::just() |
       stdexec::then([&]{
         timers[DA_Load_rho]->begin();
@@ -169,7 +176,9 @@ private:
       });
 
     timers[TimerEnum::DA]->begin();
-    scope.spawn(stdexec::on(io_scheduler, std::move(_load_rho)));
+    scope0.spawn(stdexec::on(io_scheduler, std::move(_load_rho)));
+    scope1.spawn(stdexec::on(io_scheduler, std::move(_load_u)));
+    scope2.spawn(stdexec::on(io_scheduler, std::move(_load_v)));
 
     // set X
     const auto f = data_vars->f().mdspan();
@@ -207,16 +216,14 @@ private:
     timers[DA_Pack_Y]->end();
 
     timers[DA_All2All_Y]->begin();
-    all2all(yk, yk_buffer); // yk(n_obs, n_batch, n_ens) -> yk_buffer(n_obs, n_batch, n_ens)
+    all2all(yk, yk_buffer);
     timers[DA_All2All_Y]->end();
 
     timers[DA_Unpack_Y]->begin();
     Impl::transpose(blas_handle_, yk_buffer, Y, {0, 2, 1}); // (n_obs, n_batch, n_ens) -> (n_obs, n_ens, n_batch)
     timers[DA_Unpack_Y]->end();
 
-    stdexec::sync_wait( scope.on_empty() ); // load rho only
-    scope.spawn(stdexec::on(io_scheduler, std::move(_load_u)));
-    scope.spawn(stdexec::on(io_scheduler, std::move(_load_v)));
+    stdexec::sync_wait( scope0.on_empty() ); // complete load rho
 
     if(!load_to_device_) {
       timers[DA_Load_H2D_rho]->begin();
@@ -225,19 +232,41 @@ private:
       }
       timers[DA_Load_H2D_rho]->end();
     }
-    auto rho_obs = data_vars->rho_obs().mdspan();
-    timers[DA_Broadcast_rho]->begin();
-    broadcast(rho_obs);
-    timers[DA_Broadcast_rho]->end();
 
-    stdexec::sync_wait( scope.on_empty() ); // load u and v
+    stdexec::sync_wait( scope1.on_empty() ); // complete load u
+
     if(!load_to_device_) {
       timers[DA_Load_H2D_u]->begin();
       if(mpi_conf_.is_master()) {
         data_vars->u_obs().updateDevice();
       }
       timers[DA_Load_H2D_u]->end();
+    }
 
+    auto _broadcast = stdexec::just() |
+      stdexec::then([&]{
+        auto rho_obs = data_vars->rho_obs().mdspan();
+        auto u_obs   = data_vars->u_obs().mdspan();
+        timers[DA_Broadcast_rho]->begin();
+        broadcast(rho_obs);
+        timers[DA_Broadcast_rho]->end();
+
+        timers[DA_Broadcast_u]->begin();
+        broadcast(u_obs);
+        timers[DA_Broadcast_u]->end();
+      });
+
+    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
+    auto _axpy_and_braodcast = stdexec::when_all(
+      std::move(_broadcast),
+      std::move(_axpy)
+    );
+    stdexec::sync_wait( std::move(_axpy_and_braodcast) );
+
+    // set yo
+    stdexec::sync_wait( scope2.on_empty() ); // complete load v
+
+    if(!load_to_device_) {
       timers[DA_Load_H2D_v]->begin();
       if(mpi_conf_.is_master()) {
         data_vars->v_obs().updateDevice();
@@ -245,32 +274,25 @@ private:
       timers[DA_Load_H2D_v]->end();
     }
 
-    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
-
-    // set yo
-    auto _broadcast = stdexec::just() |
+    auto _gemm = letkf_solver_->solve_gemm_sender(scheduler);
+    auto _broadcast_v = stdexec::just() |
       stdexec::then([&]{
-        auto u_obs   = data_vars->u_obs().mdspan();
         auto v_obs   = data_vars->v_obs().mdspan();
-        timers[DA_Broadcast_u]->begin();
-        broadcast(u_obs);
-        timers[DA_Broadcast_u]->end();
-
         timers[DA_Broadcast_v]->begin();
         broadcast(v_obs);
         timers[DA_Broadcast_v]->end();
       });
 
-    auto _axpy_and_braodcast = stdexec::when_all(
-      std::move(_broadcast),
-      std::move(_axpy)
+    auto _gemm_and_braodcast = stdexec::when_all(
+      std::move(_broadcast_v),
+      std::move(_gemm)
     );
-    stdexec::sync_wait( std::move(_axpy_and_braodcast) );
+    stdexec::sync_wait( std::move(_gemm_and_braodcast) );
 
     setyo(data_vars, timers);
 
     timers[DA_LETKF]->begin();
-    letkf_solver_->solve_evd();
+    letkf_solver_->solve_update();
     timers[DA_LETKF]->end();
 
     timers[DA_Update]->begin();

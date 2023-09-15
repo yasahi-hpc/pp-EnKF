@@ -81,6 +81,18 @@ public:
     #else
       nvexec::stream_context stream_ctx{};
       auto scheduler = stream_ctx.get_scheduler();
+      if(conf_.settings_.is_async_) {
+        // Get stream from the scheduler
+        auto stream_getter = stdexec::schedule(scheduler)
+                           | stdexec::let_value([] {
+                               return nvexec::get_stream();
+                             })
+                           | stdexec::then([](cudaStream_t stream) {
+                               return stream;
+                             });
+        auto [stream] = stdexec::sync_wait(std::move(stream_getter)).value();
+        letkf_->set_stream(stream);
+      }
     #endif
 
     exec::static_thread_pool io_thread_pool{std::thread::hardware_concurrency()};
