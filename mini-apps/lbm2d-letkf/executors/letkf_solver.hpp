@@ -247,7 +247,7 @@ public:
   }
 
 public:
-  stdexec::sender auto solve_axpy_sender(stdexec::scheduler auto&& scheduler) {
+  stdexec::sender auto solve_evd_sender(stdexec::scheduler auto&& scheduler) {
     auto X = X_.mdspan();
     auto Y = Y_.mdspan();
     auto dX = dX_.mdspan();
