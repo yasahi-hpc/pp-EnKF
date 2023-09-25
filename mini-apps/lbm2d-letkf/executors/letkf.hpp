@@ -243,25 +243,32 @@ private:
       timers[DA_Load_H2D_u]->end();
     }
 
+    MPI_Request requests[2];
     auto _broadcast = stdexec::just() |
       stdexec::then([&]{
         auto rho_obs = data_vars->rho_obs().mdspan();
         auto u_obs   = data_vars->u_obs().mdspan();
         timers[DA_Broadcast_rho]->begin();
-        broadcast(rho_obs);
-        timers[DA_Broadcast_rho]->end();
+        broadcast(rho_obs, &requests[0]);
 
         timers[DA_Broadcast_u]->begin();
-        broadcast(u_obs);
-        timers[DA_Broadcast_u]->end();
+        broadcast(u_obs, &requests[1]);
       });
 
-    auto _axpy = letkf_solver_->solve_axpy_sender(scheduler);
-    auto _axpy_and_braodcast = stdexec::when_all(
+    auto _evd = letkf_solver_->solve_evd_sender(scheduler);
+    auto _evd_and_broadcast = stdexec::when_all(
       std::move(_broadcast),
-      std::move(_axpy)
-    );
-    stdexec::sync_wait( std::move(_axpy_and_braodcast) );
+      std::move(_evd)
+    ) | stdexec::then(
+          [&](){
+            MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+            timers[DA_Broadcast_rho]->end();
+            timers[DA_Broadcast_u]->end();
+          });
+
+    timers[DA_LETKF_EVD_and_Broadcast]->begin();
+    stdexec::sync_wait( std::move(_evd_and_broadcast) );
+    timers[DA_LETKF_EVD_and_Broadcast]->end();
 
     // set yo
     stdexec::sync_wait( scope2.on_empty() ); // complete load v
@@ -274,20 +281,29 @@ private:
       timers[DA_Load_H2D_v]->end();
     }
 
+    MPI_Request request;
     auto _gemm = letkf_solver_->solve_gemm_sender(scheduler);
     auto _broadcast_v = stdexec::just() |
       stdexec::then([&]{
-        auto v_obs   = data_vars->v_obs().mdspan();
+        auto v_obs = data_vars->v_obs().mdspan();
         timers[DA_Broadcast_v]->begin();
-        broadcast(v_obs);
-        timers[DA_Broadcast_v]->end();
+        broadcast(v_obs, &request);
       });
 
-    auto _gemm_and_braodcast = stdexec::when_all(
+    auto _gemm_and_broadcast = stdexec::when_all(
       std::move(_broadcast_v),
       std::move(_gemm)
-    );
-    stdexec::sync_wait( std::move(_gemm_and_braodcast) );
+    ) | stdexec::then(
+          [&](){
+            MPI_Status status;
+            MPI_Wait(&request, &status);
+            timers[DA_Broadcast_v]->end();
+          }
+        );
+
+    timers[DA_LETKF_GEMM_and_Broadcast]->begin();
+    stdexec::sync_wait( std::move(_gemm_and_broadcast) );
+    timers[DA_LETKF_GEMM_and_Broadcast]->end();
 
     setyo(data_vars, timers);
 
@@ -456,6 +472,23 @@ private:
                  mpi_conf_.comm());
   }
 
+  template <class ViewType,
+            std::enable_if_t<ViewType::rank()==3, std::nullptr_t> = nullptr>
+  void all2all(const ViewType& a, ViewType& b, MPI_Request* request) {
+    assert( a.extents() == b.extents() );
+    MPI_Datatype mpi_datatype = Impl::getMPIDataType<ViewType::value_type>();
+
+    const std::size_t size = a.extent(0) * a.extent(1);
+    MPI_Ialltoall(a.data_handle(),
+                  size,
+                  mpi_datatype,
+                  b.data_handle(),
+                  size,
+                  mpi_datatype,
+                  mpi_conf_.comm(),
+                  request);
+  }
+
   template <class ViewType>
   void broadcast(ViewType& a) {
     MPI_Datatype mpi_datatype = Impl::getMPIDataType<ViewType::value_type>();
@@ -466,6 +499,19 @@ private:
               mpi_datatype,
               0,
               mpi_conf_.comm());
+  }
+
+  template <class ViewType>
+  void broadcast(ViewType& a, MPI_Request* request) {
+    MPI_Datatype mpi_datatype = Impl::getMPIDataType<ViewType::value_type>();
+
+    const std::size_t size = a.size();
+    MPI_Ibcast(a.data_handle(),
+               size,
+               mpi_datatype,
+               0,
+               mpi_conf_.comm(),
+               request);
   }
 
   void load(std::unique_ptr<DataVars>& data_vars, const int it) {

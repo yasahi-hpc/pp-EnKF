@@ -93,6 +93,9 @@ enum TimerEnum : int {Total,
                       DA_Broadcast_u,
                       DA_Broadcast_v,
                       DA_LETKF,
+                      DA_LETKF_EVD_and_Broadcast,
+                      DA_LETKF_GEMM_and_Broadcast,
+                      DA_LETKF_Update,
                       DA_Update,
                       Diag,
                       LBMSolver,
@@ -101,32 +104,35 @@ enum TimerEnum : int {Total,
 static void defineTimers(std::vector<Timer*> &timers, bool use_time_stamps=false) {
   // Set timers
   timers.resize(Nb_timers);
-  timers[TimerEnum::Total]         = new Timer("total");
-  timers[TimerEnum::MainLoop]      = new Timer("MainLoop");
-  timers[TimerEnum::DA]            = new Timer("DA", use_time_stamps);
-  timers[TimerEnum::DA_Load]       = new Timer("DA_Load", use_time_stamps);
-  timers[TimerEnum::DA_Load_H2D]   = new Timer("DA_Load_H2D", use_time_stamps);
-  timers[TimerEnum::DA_Load_rho]     = new Timer("DA_Load_rho", use_time_stamps);
-  timers[TimerEnum::DA_Load_H2D_rho] = new Timer("DA_Load_H2D_rho", use_time_stamps);
-  timers[TimerEnum::DA_Load_u]     = new Timer("DA_Load_u", use_time_stamps);
-  timers[TimerEnum::DA_Load_H2D_u] = new Timer("DA_Load_H2D_u", use_time_stamps);
-  timers[TimerEnum::DA_Load_v]     = new Timer("DA_Load_v", use_time_stamps);
-  timers[TimerEnum::DA_Load_H2D_v] = new Timer("DA_Load_H2D_v", use_time_stamps);
-  timers[TimerEnum::DA_Pack_X]     = new Timer("DA_Pack_X", use_time_stamps);
-  timers[TimerEnum::DA_All2All_X]  = new Timer("DA_All2All_X", use_time_stamps);
-  timers[TimerEnum::DA_Unpack_X]   = new Timer("DA_Unpack_X", use_time_stamps);
-  timers[TimerEnum::DA_Pack_Y]     = new Timer("DA_Pack_Y", use_time_stamps);
-  timers[TimerEnum::DA_All2All_Y]  = new Timer("DA_All2All_Y", use_time_stamps);
-  timers[TimerEnum::DA_Unpack_Y]   = new Timer("DA_Unpack_Y", use_time_stamps);
-  timers[TimerEnum::DA_Pack_Obs]   = new Timer("DA_Pack_Obs", use_time_stamps);
-  timers[TimerEnum::DA_Broadcast]  = new Timer("DA_Broadcast", use_time_stamps);
-  timers[TimerEnum::DA_Broadcast_rho] = new Timer("DA_Broadcast_rho", use_time_stamps);
-  timers[TimerEnum::DA_Broadcast_u]  = new Timer("DA_Broadcast_u", use_time_stamps);
-  timers[TimerEnum::DA_Broadcast_v]  = new Timer("DA_Broadcast_v", use_time_stamps);
-  timers[TimerEnum::DA_LETKF]      = new Timer("DA_LETKF", use_time_stamps);
-  timers[TimerEnum::DA_Update]     = new Timer("DA_Update", use_time_stamps);
-  timers[TimerEnum::Diag]          = new Timer("diag");
-  timers[TimerEnum::LBMSolver]     = new Timer("lbm");
+  timers[TimerEnum::Total]                       = new Timer("total");
+  timers[TimerEnum::MainLoop]                    = new Timer("MainLoop");
+  timers[TimerEnum::DA]                          = new Timer("DA", use_time_stamps);
+  timers[TimerEnum::DA_Load]                     = new Timer("DA_Load", use_time_stamps);
+  timers[TimerEnum::DA_Load_H2D]                 = new Timer("DA_Load_H2D", use_time_stamps);
+  timers[TimerEnum::DA_Load_rho]                 = new Timer("DA_Load_rho", use_time_stamps);
+  timers[TimerEnum::DA_Load_H2D_rho]             = new Timer("DA_Load_H2D_rho", use_time_stamps);
+  timers[TimerEnum::DA_Load_u]                   = new Timer("DA_Load_u", use_time_stamps);
+  timers[TimerEnum::DA_Load_H2D_u]               = new Timer("DA_Load_H2D_u", use_time_stamps);
+  timers[TimerEnum::DA_Load_v]                   = new Timer("DA_Load_v", use_time_stamps);
+  timers[TimerEnum::DA_Load_H2D_v]               = new Timer("DA_Load_H2D_v", use_time_stamps);
+  timers[TimerEnum::DA_Pack_X]                   = new Timer("DA_Pack_X", use_time_stamps);
+  timers[TimerEnum::DA_All2All_X]                = new Timer("DA_All2All_X", use_time_stamps);
+  timers[TimerEnum::DA_Unpack_X]                 = new Timer("DA_Unpack_X", use_time_stamps);
+  timers[TimerEnum::DA_Pack_Y]                   = new Timer("DA_Pack_Y", use_time_stamps);
+  timers[TimerEnum::DA_All2All_Y]                = new Timer("DA_All2All_Y", use_time_stamps);
+  timers[TimerEnum::DA_Unpack_Y]                 = new Timer("DA_Unpack_Y", use_time_stamps);
+  timers[TimerEnum::DA_Pack_Obs]                 = new Timer("DA_Pack_Obs", use_time_stamps);
+  timers[TimerEnum::DA_Broadcast]                = new Timer("DA_Broadcast", use_time_stamps);
+  timers[TimerEnum::DA_Broadcast_rho]            = new Timer("DA_Broadcast_rho", use_time_stamps);
+  timers[TimerEnum::DA_Broadcast_u]              = new Timer("DA_Broadcast_u", use_time_stamps);
+  timers[TimerEnum::DA_Broadcast_v]              = new Timer("DA_Broadcast_v", use_time_stamps);
+  timers[TimerEnum::DA_LETKF]                    = new Timer("DA_LETKF", use_time_stamps);
+  timers[TimerEnum::DA_LETKF_EVD_and_Broadcast]  = new Timer("DA_LETKF_EVD_and_Broadcast", use_time_stamps);
+  timers[TimerEnum::DA_LETKF_GEMM_and_Broadcast] = new Timer("DA_LETKF_GEMM_and_Broadcast", use_time_stamps);
+  timers[TimerEnum::DA_LETKF_Update]             = new Timer("DA_LETKF_Update", use_time_stamps);
+  timers[TimerEnum::DA_Update]                   = new Timer("DA_Update", use_time_stamps);
+  timers[TimerEnum::Diag]                        = new Timer("diag");
+  timers[TimerEnum::LBMSolver]                   = new Timer("lbm");
 }
 
 static void printTimers(std::vector<Timer*> &timers) {
