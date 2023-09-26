@@ -225,161 +225,9 @@ private:
   }
 
 public:
-  template <class Scheduler, class View>
-  void pack(Scheduler&& schdeuler, View& u) {
-    // Define submdspans for halo regions
-    const std::pair inner_x(1, u.extent(0) - 1);
-    const std::pair inner_y(1, u.extent(1) - 1);
-    const std::pair inner_z(1, u.extent(2) - 1);
-
-    // Exchange in x direction
-    {
-      int i = 0;
-      auto ux_send_left  = stdex::submdspan(u, 1, inner_y, inner_z);
-      auto ux_send_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
-
-      pack_(schdeuler, send_buffer(i), ux_send_left, ux_send_right);
-    }
-
-    // Exchange in y direction
-    {
-      int i = 1;
-      auto uy_send_left  = stdex::submdspan(u, inner_x, 1, inner_z);
-      auto uy_send_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
-
-      pack_(schdeuler, send_buffer(i), uy_send_left, uy_send_right);
-    }
-
-    // Exchange in z direction
-    {
-      int i = 2;
-      auto uz_send_left  = stdex::submdspan(u, inner_x, inner_y, 1);
-      auto uz_send_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
-
-      pack_(schdeuler, send_buffer(i), uz_send_left, uz_send_right);
-    }
-  }
-
-  template <class Scheduler, class View>
-  void unpack(Scheduler&& schdeuler, View& u) {
-    // Define submdspans for halo regions
-    const std::pair inner_x(1, u.extent(0) - 1);
-    const std::pair inner_y(1, u.extent(1) - 1);
-    const std::pair inner_z(1, u.extent(2) - 1);
-
-    // Exchange in x direction
-    {
-      int i = 0;
-      auto ux_recv_left  = stdex::submdspan(u, 0, inner_y, inner_z);
-      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 1, inner_y, inner_z);
-
-      unpack_(schdeuler, ux_recv_left, ux_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in y direction
-    {
-      int i = 1;
-      auto uy_recv_left  = stdex::submdspan(u, inner_x, 0, inner_z);
-      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 1, inner_z);
-
-      unpack_(schdeuler, uy_recv_left, uy_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in z direction
-    {
-      int i = 2;
-      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 0);
-      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 1);
-
-      unpack_(schdeuler, uz_recv_left, uz_recv_right, recv_buffer(i));
-    }
-  }
-
-  template <class Scheduler, class View>
-  void boundaryUpdate(const Config& conf, Scheduler&& schdeuler, View& u) {
-    // Define submdspans for halo regions
-    const std::pair inner_x(1, u.extent(0) - 1);
-    const std::pair inner_y(1, u.extent(1) - 1);
-    const std::pair inner_z(1, u.extent(2) - 1);
-
-    // Exchange in x direction
-    {
-      int i = 0;
-      auto ux_recv_left  = stdex::submdspan(u, 1, inner_y, inner_z);
-      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
-
-      boundaryUpdate_(conf, schdeuler, ux_recv_left, ux_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in y direction
-    {
-      int i = 1;
-      auto uy_recv_left  = stdex::submdspan(u, inner_x, 1, inner_z);
-      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
-
-      boundaryUpdate_(conf, schdeuler, uy_recv_left, uy_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in z direction
-    {
-      int i = 2;
-      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 1);
-      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
-
-      boundaryUpdate_(conf, schdeuler, uz_recv_left, uz_recv_right, recv_buffer(i));
-    }
-  }
-
   void commP2P() {
     for(std::size_t i=0; i<send_halos_.size(); i++) {
       commP2P_(recv_halos_.at(i), send_halos_.at(i));
-    }
-  }
-
-  template <class Scheduler, class View>
-  void exchangeHalos(Scheduler&& schdeuler, View& u) {
-    // Define submdspans for halo regions
-    const std::pair inner_x(1, u.extent(0) - 1);
-    const std::pair inner_y(1, u.extent(1) - 1);
-    const std::pair inner_z(1, u.extent(2) - 1);
-
-    // Exchange in x direction
-    {
-      int i = 0;
-      auto ux_send_left  = stdex::submdspan(u, 1, inner_y, inner_z);
-      auto ux_send_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
-      auto ux_recv_left  = stdex::submdspan(u, 0, inner_y, inner_z);
-      auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 1, inner_y, inner_z);
-
-      pack_(schdeuler, send_buffer(i), ux_send_left, ux_send_right);
-      commP2P_(recv_buffer(i), send_buffer(i));
-      unpack_(schdeuler, ux_recv_left, ux_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in y direction
-    {
-      int i = 1;
-      auto uy_send_left  = stdex::submdspan(u, inner_x, 1, inner_z);
-      auto uy_send_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
-      auto uy_recv_left  = stdex::submdspan(u, inner_x, 0, inner_z);
-      auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 1, inner_z);
-
-      pack_(schdeuler, send_buffer(i), uy_send_left, uy_send_right);
-      commP2P_(recv_buffer(i), send_buffer(i));
-      unpack_(schdeuler, uy_recv_left, uy_recv_right, recv_buffer(i));
-    }
-
-    // Exchange in z direction
-    {
-      int i = 2;
-      auto uz_send_left  = stdex::submdspan(u, inner_x, inner_y, 1);
-      auto uz_send_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
-      auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 0);
-      auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 1);
-
-      pack_(schdeuler, send_buffer(i), uz_send_left, uz_send_right);
-      commP2P_(recv_buffer(i), send_buffer(i));
-      unpack_(schdeuler, uz_recv_left, uz_recv_right, recv_buffer(i));
     }
   }
 
@@ -407,48 +255,132 @@ private:
       thrust::swap( send_right_vector, recv_left_vector  );
     }
   }
-
-  template <class Scheduler, class HaloType, class View>
-  void pack_(Scheduler&& scheduler, HaloType& send, const View& left, const View& right) {
-    auto left_buffer = send.left();
-    auto right_buffer = send.right();
-    const std::size_t n = left.size();
-
-    assert( left.extents() == right.extents() );
-    assert( left.extents() == left_buffer.extents() );
-    assert( left.extents() == right_buffer.extents() );
-
-    auto pack_task = stdexec::just() | exec::on( scheduler, stdexec::bulk(n, copy_functor(left, right, left_buffer, right_buffer) ) );
-    stdexec::sync_wait( std::move(pack_task) );
-  }
-
-  template <class Scheduler, class HaloType, class View>
-  void unpack_(Scheduler&& scheduler, View& left, View& right, HaloType& recv) {
-    const auto left_buffer = recv.left();
-    const auto right_buffer = recv.right();
-    const std::size_t n = left.size();
-
-    assert( left.extents() == right.extents() );
-    assert( left.extents() == left_buffer.extents() );
-    assert( left.extents() == right_buffer.extents() );
-
-    auto unpack_task = stdexec::just() | exec::on( scheduler, stdexec::bulk(n, copy_functor(left_buffer, right_buffer, left, right) ) );
-    stdexec::sync_wait( std::move(unpack_task) );
-  }
-
-  template <class Scheduler, class HaloType, class View>
-  void boundaryUpdate_(const Config& conf, Scheduler&& scheduler, View& left, View& right, HaloType& recv) {
-    const auto left_buffer = recv.left();
-    const auto right_buffer = recv.right();
-    const std::size_t n = left.size();
-
-    assert( left.extents() == right.extents() );
-    assert( left.extents() == left_buffer.extents() );
-    assert( left.extents() == right_buffer.extents() );
-
-    auto update_task = stdexec::just() | exec::on( scheduler, stdexec::bulk(n, heat3d_boundary_functor(conf, left_buffer, right_buffer, left, right) ) );
-    stdexec::sync_wait( std::move(update_task) );
-  }
 };
+
+/* Senders for boundary updates */
+template <class Sender, class Scheduler, class HaloType, class View>
+stdexec::sender auto pack_sender(Sender&& sender, Scheduler&& scheduler, HaloType& send, const View& left, const View& right) {
+  auto left_buffer = send.left();
+  auto right_buffer = send.right();
+  const std::size_t n = left.size();
+
+  assert( left.extents() == right.extents() );
+  assert( left.extents() == left_buffer.extents() );
+  assert( left.extents() == right_buffer.extents() );
+
+  return sender | exec::on( scheduler, stdexec::bulk(n, copy_functor(left, right, left_buffer, right_buffer) ) );
+}
+
+template <class Sender, class Scheduler, class HaloType, class View>
+stdexec::sender auto unpack_sender(Sender&& sender, Scheduler&& scheduler, View& left, View& right, HaloType& recv) {
+  const auto left_buffer = recv.left();
+  const auto right_buffer = recv.right();
+  const std::size_t n = left.size();
+
+  assert( left.extents() == right.extents() );
+  assert( left.extents() == left_buffer.extents() );
+  assert( left.extents() == right_buffer.extents() );
+
+  return sender | exec::on( scheduler, stdexec::bulk(n, copy_functor(left_buffer, right_buffer, left, right) ) );
+}
+
+template <class Sender, class Scheduler, class HaloType, class View>
+stdexec::sender auto boundaryUpdate_sender(Sender&& sender, Scheduler&& scheduler, const Config& conf, View& left, View& right, HaloType& recv) {
+  const auto left_buffer = recv.left();
+  const auto right_buffer = recv.right();
+  const std::size_t n = left.size();
+
+  assert( left.extents() == right.extents() );
+  assert( left.extents() == left_buffer.extents() );
+  assert( left.extents() == right_buffer.extents() );
+
+  return sender | exec::on( scheduler, stdexec::bulk(n, heat3d_boundary_functor(conf, left_buffer, right_buffer, left, right) ) );
+}
+
+template <class Sender, class Scheduler, class View>
+stdexec::sender auto pack_all_sender(Sender&& sender, Scheduler&& scheduler, Comm& comm, View& u) {
+  // Define submdspans for halo regions
+  const std::pair inner_x(1, u.extent(0) - 1);
+  const std::pair inner_y(1, u.extent(1) - 1);
+  const std::pair inner_z(1, u.extent(2) - 1);
+
+  int i = 0;
+  auto ux_send_left   = stdex::submdspan(u, 1, inner_y, inner_z);
+  auto ux_send_right  = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
+  auto _pack_x_sender = pack_sender(sender, scheduler, comm.send_buffer(i), ux_send_left, ux_send_right);
+
+  i = 1;
+  auto uy_send_left   = stdex::submdspan(u, inner_x, 1, inner_z);
+  auto uy_send_right  = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
+  auto _pack_y_sender = pack_sender(sender, scheduler, comm.send_buffer(i), uy_send_left, uy_send_right);
+
+  i = 2;
+  auto uz_send_left   = stdex::submdspan(u, inner_x, inner_y, 1);
+  auto uz_send_right  = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
+  auto _pack_z_sender = pack_sender(sender, scheduler, comm.send_buffer(i), uz_send_left, uz_send_right);
+
+  return stdexec::when_all(
+           std::move(_pack_x_sender),
+           std::move(_pack_y_sender),
+           std::move(_pack_z_sender)
+         );
+}
+
+template <class Sender, class Scheduler, class View>
+stdexec::sender auto unpack_all_sender(Sender&& sender, Scheduler&& scheduler, Comm& comm, View& u) {
+  // Define submdspans for halo regions
+  const std::pair inner_x(1, u.extent(0) - 1);
+  const std::pair inner_y(1, u.extent(1) - 1);
+  const std::pair inner_z(1, u.extent(2) - 1);
+
+  int i = 0;
+  auto ux_recv_left  = stdex::submdspan(u, 0, inner_y, inner_z);
+  auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 1, inner_y, inner_z);
+  auto _unpack_x_sender = unpack_sender(sender, scheduler, ux_recv_left, ux_recv_right, comm.recv_buffer(i));
+
+  i = 1;
+  auto uy_recv_left  = stdex::submdspan(u, inner_x, 0, inner_z);
+  auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 1, inner_z);
+  auto _unpack_y_sender = unpack_sender(sender, scheduler, uy_recv_left, uy_recv_right, comm.recv_buffer(i));
+
+  i = 2;
+  auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 0);
+  auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 1);
+  auto _unpack_z_sender = unpack_sender(sender, scheduler, uz_recv_left, uz_recv_right, comm.recv_buffer(i));
+
+  return stdexec::when_all(
+           std::move(_unpack_x_sender),
+           std::move(_unpack_y_sender),
+           std::move(_unpack_z_sender)
+         );
+}
+
+template <class Sender, class Scheduler, class View>
+stdexec::sender auto boundaryUpdate_all_sender(Sender&& sender, Scheduler&& schdeuler, const Config& conf, Comm& comm, View& u) {
+  // [Note] These operations must be done sequential, not with when_all
+  // Define submdspans for halo regions
+  const std::pair inner_x(1, u.extent(0) - 1);
+  const std::pair inner_y(1, u.extent(1) - 1);
+  const std::pair inner_z(1, u.extent(2) - 1);
+
+  int i = 0;
+  auto ux_recv_left  = stdex::submdspan(u, 1, inner_y, inner_z);
+  auto ux_recv_right = stdex::submdspan(u, u.extent(0) - 2, inner_y, inner_z);
+  auto _boundary_update_x_sender = boundaryUpdate_sender(sender, schdeuler, conf, ux_recv_left, ux_recv_right, comm.recv_buffer(i));
+
+  // Exchange in y direction
+  i = 1;
+  auto uy_recv_left  = stdex::submdspan(u, inner_x, 1, inner_z);
+  auto uy_recv_right = stdex::submdspan(u, inner_x, u.extent(1) - 2, inner_z);
+  auto _boundary_update_y_sender = boundaryUpdate_sender(_boundary_update_x_sender, schdeuler, conf, uy_recv_left, uy_recv_right, comm.recv_buffer(i));
+
+  // Exchange in z direction
+  i = 2;
+  auto uz_recv_left  = stdex::submdspan(u, inner_x, inner_y, 1);
+  auto uz_recv_right = stdex::submdspan(u, inner_x, inner_y, u.extent(2) - 2);
+  auto _boundary_update_z_sender = boundaryUpdate_sender(_boundary_update_y_sender, schdeuler, conf, uz_recv_left, uz_recv_right, comm.recv_buffer(i));
+
+  return _boundary_update_z_sender;
+}
 
 #endif
