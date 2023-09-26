@@ -62,52 +62,104 @@ void solve(const Config& conf,
     // Overlapping
     for(std::size_t i=0; i<conf.nbiter_; i++) {
       timers[MainLoop]->begin();
+
+      auto _pack_all =
+        pack_all_sender(stdexec::just(),
+                        std::forward<decltype(scheduler)>(scheduler),
+                        comm,
+                        u);
+
       timers[HaloPack]->begin();
-      comm.pack(scheduler, u);
+      stdexec::sync_wait( std::move(_pack_all) );
       timers[HaloPack]->end();
 
-      auto inner_update = stdexec::when_all(
-        stdexec::just() | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) ),
-        stdexec::just() | stdexec::then( [&]{ timers[HaloComm]->begin();
-                                              comm.commP2P(); 
-                                              timers[HaloComm]->end();
-                                            } )
+      auto _inner_update =
+        stdexec::when_all(
+          stdexec::just() | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) ),
+          stdexec::just() | stdexec::then( [&]{ timers[HaloComm]->begin();
+                                                comm.commP2P();
+                                                timers[HaloComm]->end();
+                                              } )
       );
 
       timers[Heat]->begin();
-      stdexec::sync_wait( std::move(inner_update) );
+      stdexec::sync_wait( std::move(_inner_update) );
       timers[Heat]->end();
 
       timers[HaloUnpack]->begin();
-      comm.boundaryUpdate(conf, scheduler, un);
+      auto _boundaryUpdate_all =
+        boundaryUpdate_all_sender(stdexec::just(), scheduler, conf, comm, un)
+        | stdexec::then( [&]{ std::swap(u, un); } );
+
+      stdexec::sync_wait( std::move(_boundaryUpdate_all) );
       timers[HaloUnpack]->end();
 
-      std::swap(u, un);
       timers[MainLoop]->end();
     }
   } else {
     for(std::size_t i=0; i<conf.nbiter_; i++) {
       timers[MainLoop]->begin();
 
+      auto _pack_all =
+        pack_all_sender(stdexec::just(),
+                        std::forward<decltype(scheduler)>(scheduler),
+                        comm,
+                        u);
+
       timers[HaloPack]->begin();
-      comm.pack(scheduler, u);
+      stdexec::sync_wait( std::move(_pack_all) );
       timers[HaloPack]->end();
 
       timers[HaloComm]->begin();
       comm.commP2P();
       timers[HaloComm]->end();
 
+      auto _unpack_all =
+        unpack_all_sender(stdexec::just(),
+                          std::forward<decltype(scheduler)>(scheduler),
+                          comm,
+                          u);
+
       timers[HaloUnpack]->begin();
-      comm.unpack(scheduler, u);
+      stdexec::sync_wait( std::move(_unpack_all) );
       timers[HaloUnpack]->end();
 
-      auto update = stdexec::just()
-        | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) )
-        | stdexec::then( [&]{ std::swap(u, un); } );
+      auto _update = stdexec::just()
+                   | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) )
+                   | stdexec::then( [&]{ std::swap(u, un); } );
 
       timers[Heat]->begin();
-      stdexec::sync_wait( std::move(update) );
+      stdexec::sync_wait( std::move(_update) );
       timers[Heat]->end();
+
+      /* The following also works
+      auto _pack_all =
+        pack_all_sender(stdexec::just(),
+                        std::forward<decltype(scheduler)>(scheduler),
+                        comm,
+                        u);
+
+      auto _comm = _pack_all
+                 | stdexec::then([&]{
+                                      timers[HaloComm]->begin();
+                                      comm.commP2P();
+                                      timers[HaloComm]->end();
+                                    });
+
+      stdexec::sync_wait( std::move(_comm) );
+
+      auto _unpack_all =
+        unpack_all_sender(stdexec::just(),
+                          std::forward<decltype(scheduler)>(scheduler),
+                          comm,
+                          u);
+
+      auto _update = _unpack_all
+                   | exec::on( scheduler, stdexec::bulk(n, heat3d_functor(conf, x_mask, y_mask, z_mask, u, un)) )
+                   | stdexec::then( [&]{ std::swap(u, un); } );
+
+      stdexec::sync_wait( std::move(_update) );
+      */
 
       timers[MainLoop]->end();
     }
@@ -131,7 +183,7 @@ void finalize(const Config& conf,
   auto un = variables.un();
 
   auto analytical_solution = stdexec::just()
-                 | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, z, un)) );
+                           | exec::on( scheduler, stdexec::bulk(n, analytical_solution_functor(conf, time, x, y, z, un)) );
   stdexec::sync_wait( std::move(analytical_solution) );
 
   // Check errors
