@@ -76,13 +76,13 @@ namespace Impl {
 
         for(int ir=0; ir < reduce_size; ir++) {
           if(reduce_dim == 0) {
-            auto sub_in = stdex::submdspan(in, ir, std::full_extent, std::full_extent);
+            auto sub_in = std::submdspan(in, ir, std::full_extent, std::full_extent);
             sum += sub_in(i0, i1);
           } else if(reduce_dim == 1) {
-            auto sub_in = stdex::submdspan(in, std::full_extent, ir, std::full_extent);
+            auto sub_in = std::submdspan(in, std::full_extent, ir, std::full_extent);
             sum += sub_in(i0, i1);
           } else {
-            auto sub_in = stdex::submdspan(in, std::full_extent, std::full_extent, ir);
+            auto sub_in = std::submdspan(in, std::full_extent, std::full_extent, ir);
             sum += sub_in(i0, i1);
           }
         }
@@ -99,13 +99,13 @@ namespace Impl {
     assert(out.extent(reduce_dim) == 1);
 
     if(reduce_dim == 0) {
-      auto sub_out = stdex::submdspan(out, 0, std::full_extent, std::full_extent);
+      auto sub_out = std::submdspan(out, 0, std::full_extent, std::full_extent);
       mean_(in, sub_out, axis);
     } else if(reduce_dim == 1) {
-      auto sub_out = stdex::submdspan(out, std::full_extent, 0, std::full_extent);
+      auto sub_out = std::submdspan(out, std::full_extent, 0, std::full_extent);
       mean_(in, sub_out, axis);
     } else {
-      auto sub_out = stdex::submdspan(out, std::full_extent, std::full_extent, 0);
+      auto sub_out = std::submdspan(out, std::full_extent, std::full_extent, 0);
       mean_(in, sub_out, axis);
     }
   }
@@ -127,10 +127,10 @@ namespace Impl {
 
         for(int ir=0; ir < reduce_size; ir++) {
           if(reduce_dim == 0) {
-            auto sub_in = stdex::submdspan(in, ir, std::full_extent);
+            auto sub_in = std::submdspan(in, ir, std::full_extent);
             sum += sub_in(idx);
           } else {
-            auto sub_in = stdex::submdspan(in, std::full_extent, ir);
+            auto sub_in = std::submdspan(in, std::full_extent, ir);
             sum += sub_in(idx);
           }
         }
@@ -147,10 +147,10 @@ namespace Impl {
     assert(out.extent(reduce_dim) == 1);
 
     if(reduce_dim == 0) {
-      auto sub_out = stdex::submdspan(out, 0, std::full_extent);
+      auto sub_out = std::submdspan(out, 0, std::full_extent);
       mean_(in, sub_out, axis);
     } else {
-      auto sub_out = stdex::submdspan(out, std::full_extent, 0);
+      auto sub_out = std::submdspan(out, std::full_extent, 0);
       mean_(in, sub_out, axis);
     }
   }
@@ -368,10 +368,10 @@ namespace Impl {
           x(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, std::full_extent);
       axpy_(x, sub_y, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, 0);
       axpy_(x, sub_y, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
@@ -404,10 +404,10 @@ namespace Impl {
           z(i0, i1) = alpha * x(i0, i1) + beta * y(i0, i1);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, std::full_extent);
       axpy_(x, sub_y, z, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, 0);
       axpy_(x, sub_y, z, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 ) {
       IteratePolicy<typename InoutView::layout_type, 2> policy2d({0, 0}, {nx0, nx1});
@@ -573,22 +573,22 @@ namespace Impl {
         });
 
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, std::full_extent, std::full_extent);
       axpy_(x, sub_y, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, 0, std::full_extent);
       axpy_(x, sub_y, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, 0, std::full_extent, 0);
       axpy_(x, sub_y, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, std::full_extent, 0, std::full_extent);
       axpy_(x, sub_y, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, 0, 0);
       axpy_(x, sub_y, beta, alpha, 0);
     } else if( ny0 == nx0 && ny1 == nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, std::full_extent, 0);
       axpy_(x, sub_y, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
@@ -620,22 +620,22 @@ namespace Impl {
           z(i0, i1, i2) = alpha * x(i0, i1, i2) + beta * y(i0, i1, i2);
         });
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, std::full_extent, std::full_extent);
       axpy_(x, sub_y, z, beta, alpha, 0);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, 0, 0, std::full_extent);
       axpy_(x, sub_y, z, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, 0, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, 0, std::full_extent, 0);
       axpy_(x, sub_y, z, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 && ny2 == nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0, std::full_extent);
+      auto sub_y = std::submdspan(y, std::full_extent, 0, std::full_extent);
       axpy_(x, sub_y, z, beta, alpha, 1);
     } else if( ny0 == nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, 0, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, 0, 0);
       axpy_(x, sub_y, z, beta, alpha, 0);
     } else if( ny0 == nx0 && ny1 == nx1 && ny2 == 1 && ny2 < nx2 ) {
-      auto sub_y = stdex::submdspan(y, std::full_extent, std::full_extent, 0);
+      auto sub_y = std::submdspan(y, std::full_extent, std::full_extent, 0);
       axpy_(x, sub_y, z, beta, alpha, 2);
     } else if( ny0 == 1 && ny0 < nx0 && ny1 == 1 && ny1 < nx1 && ny2 == 1 && ny2 < nx2 ) {
       IteratePolicy<typename InoutView::layout_type, 3> policy3d({0, 0, 0}, {nx0, nx1, nx2});
