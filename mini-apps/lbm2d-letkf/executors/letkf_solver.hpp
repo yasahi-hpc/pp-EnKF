@@ -32,13 +32,13 @@ stdexec::sender auto mean_sender(Sender&& sender, Scheduler&& scheduler, const I
         const int i1 = idx/n0;
         for(int ir=0; ir < reduce_size; ir++) {
           if(reduce_dim == 0) {
-            auto sub_in = stdex::submdspan(in, ir, std::full_extent, std::full_extent);
+            auto sub_in = std::submdspan(in, ir, std::full_extent, std::full_extent);
             sum += sub_in(i0, i1);
           } else if(reduce_dim == 1) {
-            auto sub_in = stdex::submdspan(in, std::full_extent, ir, std::full_extent);
+            auto sub_in = std::submdspan(in, std::full_extent, ir, std::full_extent);
             sum += sub_in(i0, i1);
           } else {
-            auto sub_in = stdex::submdspan(in, std::full_extent, std::full_extent, ir);
+            auto sub_in = std::submdspan(in, std::full_extent, std::full_extent, ir);
             sum += sub_in(i0, i1);
           }
         }

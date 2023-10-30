@@ -1,10 +1,10 @@
 #!/bin/bash
-#PJM -L "node=1"
+#PJM -L "node=6"
 #PJM -L "rscgrp=regular-a"
 #PJM -L "elapse=60:00"
 #PJM -s
 #PJM -g jh220031a
-#PJM --mpi proc=2
+#PJM --mpi proc=12
 
 . /etc/profile.d/modules.sh # Initialize module command
 
@@ -31,9 +31,10 @@ fi
 
 export UCX_MEMTYPE_CACHE=n
 export UCX_IB_GPU_DIRECT_RDMA=no
+export OMPI_MCA_plm_rsh_agent=/bin/pjrsh
 export OMP_NUM_THREADS=36
 
 mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --bind-to none \
-    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1
+    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 12 --nx 1536 --ny 1536 --nz 128 --nbiter 100 --freq_diag 0 --use_time_stamps 1
 mpiexec -machinefile $PJM_O_NODEINF -np $PJM_MPI_PROC --bind-to none \
-    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 2 --nx 512 --ny 512 --nz 256 --nbiter 1000 --freq_diag 0 --use_time_stamps 1 --is_async 1
+    ../build/mini-apps/heat3d-mpi/executors/heat3d-mpi-executors --px 1 --py 1 --pz 12 --nx 1536 --ny 1536 --nz 128 --nbiter 100 --freq_diag 0 --use_time_stamps 1 --is_async 1

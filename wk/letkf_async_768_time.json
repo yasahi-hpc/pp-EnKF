@@ -1,0 +1,36 @@
+{
+    "Physics": {
+        "rho_ref": 1.0,
+        "u_ref": 1.0,
+        "nu": 1.0e-4,
+        "friction_rate": 5.0e-4,
+        "kf": 4.0,
+        "fkf": 5.6,
+        "dk": 10,
+        "sigma": 5,
+        "p_amp": 0.01,
+        "obs_error_rho": 0.01,
+        "obs_error_u": 0.1
+    },
+    "Settings": {
+        "base_dir": "./",
+        "sim_type": "letkf",
+        "case_name": "letkf_async768",
+        "in_case_name": "nature768",
+        "nx": 768,
+        "ny": 768,
+        "spinup": 200000,
+        "nbiter": 40000,
+        "io_interval": 200,
+        "da_interval": 200,
+        "obs_interval": 1,
+        "lyapnov": false,
+        "les": true,
+        "is_async": true,
+        "use_time_stamps": true,
+        "disable_output": true,
+        "da_nud_rate": 0.1,
+        "beta": 1.07,
+        "rloc_len": 1
+    }
+}
