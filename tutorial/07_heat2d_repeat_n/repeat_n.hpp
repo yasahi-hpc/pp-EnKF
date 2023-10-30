@@ -53,69 +53,34 @@ namespace nvexec {
 namespace ex = stdexec;
 
 #if defined(_NVHPC_CUDA) || defined(__CUDACC__)
-namespace nvexec::STDEXEC_STREAM_DETAIL_NS { namespace repeat_n {
-  template <class OpT>
-  class receiver_2_t : public stream_receiver_base {
-    using Sender = typename OpT::PredSender;
-    using Receiver = typename OpT::Receiver;
+namespace nvexec::STDEXEC_STREAM_DETAIL_NS { //
 
-    OpT& op_state_;
+  namespace repeat_n {
+    template <class OpT>
+    class receiver_2_t : public stream_receiver_base {
+      using Sender = typename OpT::PredSender;
+      using Receiver = typename OpT::Receiver;
 
-   public:
-    template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
-    friend void tag_invoke(_Tag __tag, receiver_2_t&& __self, _Args&&... __args) noexcept {
-      OpT& op_state = __self.op_state_;
-      op_state.propagate_completion_signal(_Tag{}, (_Args&&) __args...);
-    }
+      OpT& op_state_;
 
-    friend void tag_invoke(ex::set_value_t, receiver_2_t&& __self) noexcept {
-      using inner_op_state_t = typename OpT::inner_op_state_t;
-
-      OpT& op_state = __self.op_state_;
-      op_state.i_++;
-
-      if (op_state.i_ == op_state.n_) {
-        op_state.propagate_completion_signal(stdexec::set_value);
-        return;
+     public:
+      template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
+      friend void tag_invoke(_Tag __tag, receiver_2_t&& __self, _Args&&... __args) noexcept {
+        OpT& op_state = __self.op_state_;
+        op_state.propagate_completion_signal(_Tag{}, (_Args&&) __args...);
       }
 
-      auto sch = stdexec::get_scheduler(stdexec::get_env(op_state.rcvr_));
-      inner_op_state_t& inner_op_state = op_state.inner_op_state_.emplace(
-        stdexec::__conv{[&]() noexcept {
-          return ex::connect(ex::schedule(sch) | op_state.closure_, receiver_2_t<OpT>{op_state});
-        }});
+      friend void tag_invoke(ex::set_value_t, receiver_2_t&& __self) noexcept {
+        using inner_op_state_t = typename OpT::inner_op_state_t;
 
-      ex::start(inner_op_state);
-    }
+        OpT& op_state = __self.op_state_;
+        op_state.i_++;
 
-    friend typename OpT::env_t tag_invoke(ex::get_env_t, const receiver_2_t& self) noexcept {
-      return self.op_state_.make_env();
-    }
+        if (op_state.i_ == op_state.n_) {
+          op_state.propagate_completion_signal(stdexec::set_value);
+          return;
+        }
 
-    explicit receiver_2_t(OpT& op_state)
-      : op_state_(op_state) {
-    }
-  };
-
-  template <class OpT>
-  class receiver_1_t : public stream_receiver_base {
-    using Receiver = typename OpT::Receiver;
-
-    OpT& op_state_;
-
-   public:
-    template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
-    friend void tag_invoke(_Tag __tag, receiver_1_t&& __self, _Args&&... __args) noexcept {
-      OpT& op_state = __self.op_state_;
-      op_state.propagate_completion_signal(_Tag{}, (_Args&&) __args...);
-    }
-
-    friend void tag_invoke(ex::set_value_t, receiver_1_t&& __self) noexcept {
-      using inner_op_state_t = typename OpT::inner_op_state_t;
-
-      OpT& op_state = __self.op_state_;
-
-      if (op_state.n_) {
         auto sch = stdexec::get_scheduler(stdexec::get_env(op_state.rcvr_));
         inner_op_state_t& inner_op_state = op_state.inner_op_state_.emplace(
           stdexec::__conv{[&]() noexcept {
@@ -123,208 +88,247 @@ namespace nvexec::STDEXEC_STREAM_DETAIL_NS { namespace repeat_n {
           }});
 
         ex::start(inner_op_state);
-      } else {
-        op_state.propagate_completion_signal(stdexec::set_value);
       }
-    }
 
-    friend typename OpT::env_t tag_invoke(ex::get_env_t, const receiver_1_t& self) noexcept {
-      return self.op_state_.make_env();
-    }
+      friend typename OpT::env_t tag_invoke(ex::get_env_t, const receiver_2_t& self) noexcept {
+        return self.op_state_.make_env();
+      }
 
-    explicit receiver_1_t(OpT& op_state)
-      : op_state_(op_state) {
-    }
-  };
+      explicit receiver_2_t(OpT& op_state)
+        : op_state_(op_state) {
+      }
+    };
 
-  template <class PredecessorSenderId, class ClosureId, class ReceiverId>
-  struct operation_state_t : operation_state_base_t<ReceiverId> {
-    using PredSender = stdexec::__t<PredecessorSenderId>;
-    using Closure = stdexec::__t<ClosureId>;
-    using Receiver = stdexec::__t<ReceiverId>;
-    using Scheduler =
-      stdexec::tag_invoke_result_t<stdexec::get_scheduler_t, stdexec::env_of_t<Receiver>>;
-    using InnerSender =
-      std::invoke_result_t<Closure, stdexec::tag_invoke_result_t<stdexec::schedule_t, Scheduler>>;
+    template <class OpT>
+    class receiver_1_t : public stream_receiver_base {
+      using Receiver = typename OpT::Receiver;
 
-    using predecessor_op_state_t =
-      ex::connect_result_t<PredSender, receiver_1_t<operation_state_t>>;
-    using inner_op_state_t = ex::connect_result_t<InnerSender, receiver_2_t<operation_state_t>>;
+      OpT& op_state_;
 
-    PredSender pred_sender_;
-    Closure closure_;
-    std::optional<predecessor_op_state_t> pred_op_state_;
-    std::optional<inner_op_state_t> inner_op_state_;
-    std::size_t n_{};
-    std::size_t i_{};
+     public:
+      template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
+      friend void tag_invoke(_Tag __tag, receiver_1_t&& __self, _Args&&... __args) noexcept {
+        OpT& op_state = __self.op_state_;
+        op_state.propagate_completion_signal(_Tag{}, (_Args&&) __args...);
+      }
 
-    friend void tag_invoke(stdexec::start_t, operation_state_t& op) noexcept {
-      if (op.stream_provider_.status_ != cudaSuccess) {
-        // Couldn't allocate memory for operation state, complete with error
-        op.propagate_completion_signal(stdexec::set_error, std::move(op.stream_provider_.status_));
-      } else {
-        if (op.n_) {
-          stdexec::start(*op.pred_op_state_);
+      friend void tag_invoke(ex::set_value_t, receiver_1_t&& __self) noexcept {
+        using inner_op_state_t = typename OpT::inner_op_state_t;
+
+        OpT& op_state = __self.op_state_;
+
+        if (op_state.n_) {
+          auto sch = stdexec::get_scheduler(stdexec::get_env(op_state.rcvr_));
+          inner_op_state_t& inner_op_state = op_state.inner_op_state_.emplace(
+            stdexec::__conv{[&]() noexcept {
+              return ex::connect(
+                ex::schedule(sch) | op_state.closure_, receiver_2_t<OpT>{op_state});
+            }});
+
+          ex::start(inner_op_state);
         } else {
-          op.propagate_completion_signal(stdexec::set_value);
+          op_state.propagate_completion_signal(stdexec::set_value);
         }
       }
-    }
 
-    operation_state_t(PredSender&& pred_sender, Closure closure, Receiver&& rcvr, std::size_t n)
-      : operation_state_base_t<ReceiverId>(
-        (Receiver&&) rcvr,
-        stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(pred_sender))
-          .context_state_)
-      , pred_sender_{(PredSender&&) pred_sender}
-      , closure_(closure)
-      , n_(n) {
-      pred_op_state_.emplace(stdexec::__conv{[&]() noexcept {
-        return ex::connect((PredSender&&) pred_sender_, receiver_1_t{*this});
-      }});
-    }
-  };
+      friend typename OpT::env_t tag_invoke(ex::get_env_t, const receiver_1_t& self) noexcept {
+        return self.op_state_.make_env();
+      }
+
+      explicit receiver_1_t(OpT& op_state)
+        : op_state_(op_state) {
+      }
+    };
+
+    template <class PredecessorSenderId, class Closure, class ReceiverId>
+    struct operation_state_t : operation_state_base_t<ReceiverId> {
+      using PredSender = stdexec::__t<PredecessorSenderId>;
+      using Receiver = stdexec::__t<ReceiverId>;
+      using Scheduler =
+        stdexec::tag_invoke_result_t<stdexec::get_scheduler_t, stdexec::env_of_t<Receiver>>;
+      using InnerSender =
+        std::invoke_result_t<Closure, stdexec::tag_invoke_result_t<stdexec::schedule_t, Scheduler>>;
+
+      using predecessor_op_state_t =
+        ex::connect_result_t<PredSender, receiver_1_t<operation_state_t>>;
+      using inner_op_state_t = ex::connect_result_t<InnerSender, receiver_2_t<operation_state_t>>;
+
+      PredSender pred_sender_;
+      Closure closure_;
+      std::optional<predecessor_op_state_t> pred_op_state_;
+      std::optional<inner_op_state_t> inner_op_state_;
+      std::size_t n_{};
+      std::size_t i_{};
+
+      friend void tag_invoke(stdexec::start_t, operation_state_t& op) noexcept {
+        if (op.stream_provider_.status_ != cudaSuccess) {
+          // Couldn't allocate memory for operation state, complete with error
+          op.propagate_completion_signal(
+            stdexec::set_error, std::move(op.stream_provider_.status_));
+        } else {
+          if (op.n_) {
+            stdexec::start(*op.pred_op_state_);
+          } else {
+            op.propagate_completion_signal(stdexec::set_value);
+          }
+        }
+      }
+
+      operation_state_t(PredSender&& pred_sender, Closure closure, Receiver&& rcvr, std::size_t n)
+        : operation_state_base_t<ReceiverId>(
+          (Receiver&&) rcvr,
+          stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(pred_sender))
+            .context_state_)
+        , pred_sender_{(PredSender&&) pred_sender}
+        , closure_(closure)
+        , n_(n) {
+        pred_op_state_.emplace(stdexec::__conv{[&]() noexcept {
+          return ex::connect((PredSender&&) pred_sender_, receiver_1_t{*this});
+        }});
+      }
+    };
 }}
 #endif
 
 namespace repeat_n_detail {
-template <class OpT>
-class receiver_t {
-  using Receiver = typename OpT::Receiver;
+  template <class OpT>
+  class receiver_t {
+    using Receiver = typename OpT::Receiver;
 
-  OpT& op_state_;
+    OpT& op_state_;
 
- public:
-  using is_receiver = void;
+   public:
+    using __t = receiver_t;
+    using __id = receiver_t;
+    using is_receiver = void;
 
-  template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
-  STDEXEC_DETAIL_CUDACC_HOST_DEVICE //
-    friend void
-    tag_invoke(_Tag __tag, receiver_t&& __self, _Args&&... __args) noexcept {
-    __tag(std::move(__self.op_state_.rcvr_), (_Args&&) __args...);
-  }
-
-  friend void tag_invoke(ex::set_value_t, receiver_t&& __self) noexcept {
-    OpT& op_state = __self.op_state_;
-
-    for (std::size_t i = 0; i < op_state.n_; i++) {
-      stdexec::sync_wait(ex::schedule(exec::inline_scheduler{}) | op_state.closure_);
+    template <stdexec::__one_of<ex::set_error_t, ex::set_stopped_t> _Tag, class... _Args>
+    STDEXEC_ATTRIBUTE((host, device))
+    friend void tag_invoke(_Tag __tag, receiver_t&& __self, _Args&&... __args) noexcept {
+      __tag(std::move(__self.op_state_.rcvr_), (_Args&&) __args...);
     }
 
-    stdexec::set_value(std::move(op_state.rcvr_));
-  }
+    friend void tag_invoke(ex::set_value_t, receiver_t&& __self) noexcept {
+      OpT& op_state = __self.op_state_;
 
-  friend auto tag_invoke(ex::get_env_t, const receiver_t& self) noexcept
-    -> stdexec::env_of_t<Receiver> {
-    return stdexec::get_env(self.op_state_.rcvr_);
-  }
+      for (std::size_t i = 0; i < op_state.n_; i++) {
+        stdexec::sync_wait(ex::schedule(exec::inline_scheduler{}) | op_state.closure_);
+      }
 
-  explicit receiver_t(OpT& op_state)
-    : op_state_(op_state) {
-  }
-};
+      stdexec::set_value(std::move(op_state.rcvr_));
+    }
 
-template <class SenderId, class ClosureId, class ReceiverId>
-struct operation_state_t {
-  using Sender = stdexec::__t<SenderId>;
-  using Closure = stdexec::__t<ClosureId>;
-  using Receiver = stdexec::__t<ReceiverId>;
+    friend auto tag_invoke(ex::get_env_t, const receiver_t& self) noexcept
+      -> stdexec::env_of_t<Receiver> {
+      return stdexec::get_env(self.op_state_.rcvr_);
+    }
 
-  using inner_op_state_t = stdexec::connect_result_t<Sender, receiver_t<operation_state_t>>;
+    explicit receiver_t(OpT& op_state)
+      : op_state_(op_state) {
+    }
+  };
 
-  inner_op_state_t op_state_;
-  Closure closure_;
-  Receiver rcvr_;
-  std::size_t n_{};
+    template <class SenderId, class Closure, class ReceiverId>
+  struct operation_state_t {
+    using Sender = stdexec::__t<SenderId>;
+    using Receiver = stdexec::__t<ReceiverId>;
 
-  friend void tag_invoke(stdexec::start_t, operation_state_t& self) noexcept {
-    stdexec::start(self.op_state_);
-  }
+    using inner_op_state_t = stdexec::connect_result_t<Sender, receiver_t<operation_state_t>>;
 
-  operation_state_t(Sender&& sender, Closure closure, Receiver&& rcvr, std::size_t n)
-    : op_state_{stdexec::connect((Sender&&) sender, receiver_t<operation_state_t>{*this})}
-    , closure_{closure}
-    , rcvr_{(Receiver&&) rcvr}
-    , n_(n) {
-  }
-};
+    inner_op_state_t op_state_;
+    Closure closure_;
+    Receiver rcvr_;
+    std::size_t n_{};
+
+    friend void tag_invoke(stdexec::start_t, operation_state_t& self) noexcept {
+      stdexec::start(self.op_state_);
+    }
+
+    operation_state_t(Sender&& sender, Closure closure, Receiver&& rcvr, std::size_t n)
+      : op_state_{stdexec::connect((Sender&&) sender, receiver_t<operation_state_t>{*this})}
+      , closure_{closure}
+      , rcvr_{(Receiver&&) rcvr}
+      , n_(n) {
+    }
+  };
+
+  template <class SenderId, class Closure>
+  struct repeat_n_sender_t {
+    using __t = repeat_n_sender_t;
+    using __id = repeat_n_sender_t;
+    using Sender = stdexec::__t<SenderId>;
+    using is_sender = void;
+
+    using completion_signatures = //
+      stdexec::completion_signatures<
+        stdexec::set_value_t(),
+        stdexec::set_stopped_t(),
+        stdexec::set_error_t(std::exception_ptr)
+#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+          ,
+        stdexec::set_error_t(cudaError_t)
+#endif
+        >;
+
+    Sender sender_;
+    Closure closure_;
+    std::size_t n_{};
+
+#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
+    template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
+      requires(stdexec::sender_to<Sender, Receiver>)
+           && (!nvexec::STDEXEC_STREAM_DETAIL_NS::receiver_with_stream_env<Receiver>)
+    friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
+      -> repeat_n_detail::operation_state_t<SenderId, Closure, stdexec::__id<Receiver>> {
+      return repeat_n_detail::operation_state_t<SenderId, Closure, stdexec::__id<Receiver>>(
+        (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
+    }
+
+    template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
+      requires(stdexec::sender_to<Sender, Receiver>)
+           && (nvexec::STDEXEC_STREAM_DETAIL_NS::receiver_with_stream_env<Receiver>)
+    friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
+      -> nvexec::STDEXEC_STREAM_DETAIL_NS::repeat_n::
+        operation_state_t<SenderId, Closure, stdexec::__id<Receiver>> {
+      return nvexec::STDEXEC_STREAM_DETAIL_NS::repeat_n::
+        operation_state_t<SenderId, Closure, stdexec::__id<Receiver>>(
+          (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
+    }
+#else
+    template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
+      requires stdexec::sender_to<Sender, Receiver>
+    friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
+      -> repeat_n_detail::operation_state_t<SenderId, Closure, stdexec::__id<Receiver>> {
+      return repeat_n_detail::operation_state_t<SenderId, Closure, stdexec::__id<Receiver>>(
+        (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
+    }
+#endif
+
+    friend auto tag_invoke(stdexec::get_env_t, const repeat_n_sender_t& s) //
+      noexcept(stdexec::__nothrow_callable<stdexec::get_env_t, const Sender&>)
+        -> stdexec::env_of_t<const Sender&> {
+      return stdexec::get_env(s.sender_);
+    }
+  };
 }
 
 struct repeat_n_t {
-template <class SenderId, class ClosureId>
-struct repeat_n_sender_t {
-  using Sender = stdexec::__t<SenderId>;
-  using Closure = stdexec::__t<ClosureId>;
-  using is_sender = void;
-
-  using completion_signatures = //
-    stdexec::completion_signatures<
-      stdexec::set_value_t(),
-      stdexec::set_stopped_t(),
-      stdexec::set_error_t(std::exception_ptr)
-#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
-        ,
-      stdexec::set_error_t(cudaError_t)
-#endif
-      >;
-
-  Sender sender_;
-  Closure closure_;
-  std::size_t n_{};
-
-#if defined(_NVHPC_CUDA) || defined(__CUDACC__)
-  template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
-    requires(stdexec::tag_invocable<stdexec::connect_t, Sender, Receiver>)
-         && (!nvexec::STDEXEC_STREAM_DETAIL_NS::receiver_with_stream_env<Receiver>)
-  friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
-    -> repeat_n_detail::operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>> {
-    return repeat_n_detail::operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>>(
-      (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
+  template <stdexec::sender Sender, stdexec::__sender_adaptor_closure Closure>
+  auto operator()(Sender&& __sndr, std::size_t n, Closure closure) const noexcept
+    -> repeat_n_detail::repeat_n_sender_t<stdexec::__id<Sender>, Closure> {
+    return repeat_n_detail::repeat_n_sender_t<stdexec::__id<Sender>, Closure>{
+      std::forward<Sender>(__sndr), closure, n};
   }
 
-  template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
-    requires(stdexec::tag_invocable<stdexec::connect_t, Sender, Receiver>)
-         && (nvexec::STDEXEC_STREAM_DETAIL_NS::receiver_with_stream_env<Receiver>)
-  friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
-    -> nvexec::STDEXEC_STREAM_DETAIL_NS::repeat_n::
-      operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>> {
-    return nvexec::STDEXEC_STREAM_DETAIL_NS::repeat_n::
-      operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>>(
-        (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
+  template <stdexec::__sender_adaptor_closure Closure>
+  auto operator()(std::size_t n, Closure closure) const
+    -> stdexec::__binder_back<repeat_n_t, std::size_t, Closure> {
+    return {
+      {},
+      {},
+      {n, (Closure&&) closure}
+    };
   }
-#else
-    template <stdexec::__decays_to<repeat_n_sender_t> Self, stdexec::receiver Receiver>
-      requires stdexec::tag_invocable<stdexec::connect_t, Sender, Receiver>
-    friend auto tag_invoke(stdexec::connect_t, Self&& self, Receiver r)
-      -> repeat_n_detail::operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>> {
-      return repeat_n_detail::operation_state_t<SenderId, ClosureId, stdexec::__id<Receiver>>(
-        (Sender&&) self.sender_, self.closure_, (Receiver&&) r, self.n_);
-    }
-#endif
-
-  friend auto tag_invoke(stdexec::get_env_t, const repeat_n_sender_t& s) //
-    noexcept(stdexec::__nothrow_callable<stdexec::get_env_t, const Sender&>)
-      -> stdexec::env_of_t<const Sender&> {
-    return stdexec::get_env(s.sender_);
-  }
-};
-
-template <stdexec::sender Sender, stdexec::__sender_adaptor_closure Closure>
-auto operator()(Sender&& __sndr, std::size_t n, Closure closure) const noexcept
-  -> repeat_n_sender_t<stdexec::__x<Sender>, stdexec::__x<Closure>> {
-  return repeat_n_sender_t<stdexec::__x<Sender>, stdexec::__x<Closure>>{
-    std::forward<Sender>(__sndr), closure, n};
-}
-
-template <stdexec::__sender_adaptor_closure Closure>
-auto operator()(std::size_t n, Closure closure) const
-  -> stdexec::__binder_back<repeat_n_t, std::size_t, Closure> {
-  return {
-    {},
-    {},
-    {n, (Closure&&) closure}
-  };
-}
 };
 
 inline constexpr repeat_n_t repeat_n{};
