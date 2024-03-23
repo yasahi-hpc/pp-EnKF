@@ -44,7 +44,7 @@ void Diags::compute(const Config& conf, Efield* ef, int iter) {
   float64 iter_mass = thrust::get<0>(moments);
   float64 iter_nrj  = thrust::get<1>(moments);
   iter_nrj = sqrt(iter_nrj * dom.dx_[0] * dom.dx_[1]);
-  iter_mass *= dom.dx_[0] + dom.dx_[1];
+  iter_mass *= dom.dx_[0] * dom.dx_[1];
 
   iter_nrj = iter_nrj > 1.e-30 ? log(iter_nrj) : -1.e9;
   nrj_(iter) = iter_nrj;

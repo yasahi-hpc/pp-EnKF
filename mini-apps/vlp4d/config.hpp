@@ -1,7 +1,10 @@
-#ifndef __CONFIG_HPP__
-#define __CONFIG_HPP__
+#ifndef CONFIG_HPP
+#define CONFIG_HPP
 
 #include <array>
+#if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+#include <sycl/sycl.hpp>
+#endif
 
 static constexpr std::size_t DIMENSION = 4;
 

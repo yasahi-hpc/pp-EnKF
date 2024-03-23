@@ -1,5 +1,7 @@
 if(PROGRAMMING_MODEL STREQUAL "STDPAR")
     add_subdirectory(stdpar)
+elseif(PROGRAMMING_MODEL STREQUAL "SYCL")
+    add_subdirectory(sycl)
 elseif(PROGRAMMING_MODEL STREQUAL "EXECUTORS")
     add_subdirectory(executors)
 elseif(PROGRAMMING_MODEL STREQUAL "THRUST")
