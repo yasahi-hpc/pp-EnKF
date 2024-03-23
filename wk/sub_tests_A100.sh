@@ -9,15 +9,8 @@
 . /etc/profile.d/modules.sh # Initialize module command
 
 module purge
-
-# Load spack
-export HOME=/work/jh220031a/i18048
-. $HOME/spack/share/spack/setup-env.sh
-
-spack load gcc@11.3.0
-spack load cmake@3.24.3%gcc@8.3.1
-module load /work/04/jh220031a/i18048/lib/nvidia/hpc_sdk23.3/modulefiles/nvhpc/23.3
-module list
+module load nvidia/24.1 cmake/3.24.0
+export NVLOCALRC=/work/opt/local/x86_64/cores/nvidia/24.1/Linux_x86_64/24.1/compilers/bin/localrc_gcc12.2.0
 
 # Need GPUs to build the code appropriately
 # So compile inside a batch job, wherein GPUs are visible
