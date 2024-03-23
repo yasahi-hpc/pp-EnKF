@@ -1,5 +1,5 @@
-#ifndef __STDPAR_TRANSPOSE_HPP__
-#define __STDPAR_TRANSPOSE_HPP__
+#ifndef STDPAR_TRANSPOSE_HPP
+#define STDPAR_TRANSPOSE_HPP
 
 #include <cmath>
 #include <cassert>
@@ -17,6 +17,19 @@
 #endif
 
 namespace Impl {
+  /*
+  // 2D transpose
+  template <class InputView, class OutputView,
+        std::enable_if_t<InputView::rank()==2 && OutputView::rank()==2, std::nullptr_t> = nullptr>
+  void transpose(const InputView& in, OutputView& out) {
+    Impl::blasHandle_t blas_handle;
+    blas_handle.create();
+    transpose(blas_handle, in, out);
+    blas_handle.destroy();
+    cudaDeviceSynchronize();
+  }
+  */
+
   /* Transpose batched matrix */
   template <class InputView, class OutputView,
           std::enable_if_t<InputView::rank()==3 && OutputView::rank()==3, std::nullptr_t> = nullptr>
@@ -97,6 +110,7 @@ namespace Impl {
     blas_handle.create();
     transpose(blas_handle, in, out, axes);
     blas_handle.destroy();
+    cudaDeviceSynchronize();
   }
 };
 

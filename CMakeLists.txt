@@ -48,7 +48,7 @@ if(BUILD_TESTING)
 endif()
 
 # Tutorial
-if(NOT BACKEND STREQUAL "HIP")
+if(PROGRAMMING_MODEL STREQUAL "EXECUTORS")
     add_subdirectory(tutorial)
 endif()
 

@@ -1,5 +1,5 @@
-#ifndef __CUDA_LINALG_HPP__
-#define __CUDA_LINALG_HPP__
+#ifndef CUDA_LINALG_HPP
+#define CUDA_LINALG_HPP
 
 #include <cassert>
 #include <thrust/device_vector.h>
@@ -7,6 +7,9 @@
 #include <cublas_v2.h>
 #include <cusolver_common.h>
 #include <cusolverDn.h>
+#if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+#include <sycl/sycl.hpp>
+#endif
 
 static inline std::string
 cusolverGetErrorString(cusolverStatus_t error) {
@@ -222,30 +225,52 @@ namespace Impl {
 
   struct blasHandle_t {
     cublasHandle_t handle_;
+    bool is_set_ = false;
+    #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      sycl::queue q_;
+    #endif
 
   public:
     void create() {
       cublasCreate(&handle_);
     }
 
-    template <class StreamType>
-    void set_stream(StreamType stream) {
-      cublasSetStream(handle_, stream);
+    template <typename QueueType>
+    void set_stream(QueueType& queue) {
+      is_set_ = true;
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        // SYCL backend
+        q_ = queue;
+      #else
+        // CUDA backend
+        cublasSetStream(handle_, queue);
+      #endif
+    }
+
+    void wait() {
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        if(is_set_) q_.wait();
+      #endif
     }
 
     void destroy() {
+      wait();
       cublasDestroy(handle_);
     }
   };
 
-  template <class T>
+  template <typename T>
   struct syevjHandle_t {
     cusolverDnHandle_t handle_;
+    #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      sycl::queue q_;
+    #endif
     thrust::device_vector<T> workspace_;
     thrust::device_vector<int> info_;
     syevjInfo_t params_;
     cusolverEigMode_t jobz_ = CUSOLVER_EIG_MODE_VECTOR;
     cublasFillMode_t uplo_ = CUBLAS_FILL_MODE_LOWER;
+    bool is_set_ = false;
 
   public:
     template <class MatrixView, class VectorView,
@@ -274,19 +299,32 @@ namespace Impl {
       info_.resize(batchSize, 0);
     }
 
-    template <class StreamType>
-    void set_stream(StreamType stream) {
-      cusolverDnSetStream(handle_, stream);
+    template <class QueueType>
+    void set_stream(QueueType& queue) {
+      is_set_ = true;
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        q_ = queue;
+      #else
+        // CUDA backend
+        cusolverDnSetStream(handle_, queue);
+      #endif
+    }
+
+    void wait() {
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        if(is_set_) q_.wait();
+      #endif
     }
 
     void destroy() {
+      wait();
       cusolverDnDestroy(handle_);
     }
   };
 
-  template <class ViewA, class ViewB, class ViewC,
+  template <typename ViewA, typename ViewB, typename ViewC,
             std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==3 && ViewC::rank()==3, std::nullptr_t> = nullptr>
-  void matrix_matrix_product(const blasHandle_t& blas_handle,
+  void matrix_matrix_product(blasHandle_t& blas_handle,
                              const ViewA& A,
                              const ViewB& B,
                              ViewC& C,
@@ -309,25 +347,52 @@ namespace Impl {
     const auto Bk = _transb == "N" ? B.extent(0) : B.extent(1);
     assert(Ak == Bk);
 
-    auto status = gemmStridedBatched(blas_handle.handle_,
-                                     transa,
-                                     transb,
-                                     Cm,
-                                     Cn,
-                                     Ak,
-                                     &alpha,
-                                     A.data_handle(),
-                                     A.extent(0),
-                                     A.extent(0) * A.extent(1),
-                                     B.data_handle(),
-                                     B.extent(0),
-                                     B.extent(0) * B.extent(1),
-                                     &beta,
-                                     C.data_handle(),
-                                     C.extent(0),
-                                     C.extent(0) * C.extent(1),
-                                     C.extent(2)
-                                    );
+    #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      blas_handle.q_.submit([&](sycl::handler &cgh) {
+        cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+          cublasSetStream(blas_handle.handle_, h.get_native_queue<sycl::backend::cuda>());
+          auto status = gemmStridedBatched(blas_handle.handle_,
+                                           transa,
+                                           transb,
+                                           Cm,
+                                           Cn,
+                                           Ak,
+                                           &alpha,
+                                           A.data_handle(),
+                                           A.extent(0),
+                                           A.extent(0) * A.extent(1),
+                                           B.data_handle(),
+                                           B.extent(0),
+                                           B.extent(0) * B.extent(1),
+                                           &beta,
+                                           C.data_handle(),
+                                           C.extent(0),
+                                           C.extent(0) * C.extent(1),
+                                           C.extent(2)
+                                          );
+        });
+      });
+    #else
+      auto status = gemmStridedBatched(blas_handle.handle_,
+                                      transa,
+                                      transb,
+                                      Cm,
+                                      Cn,
+                                      Ak,
+                                      &alpha,
+                                      A.data_handle(),
+                                      A.extent(0),
+                                      A.extent(0) * A.extent(1),
+                                      B.data_handle(),
+                                      B.extent(0),
+                                      B.extent(0) * B.extent(1),
+                                      &beta,
+                                      C.data_handle(),
+                                      C.extent(0),
+                                      C.extent(0) * C.extent(1),
+                                      C.extent(2)
+                                      );
+    #endif
   }
 
   /*
@@ -335,7 +400,7 @@ namespace Impl {
    * Matrix shape
    * A (n, m, l), B (m, k, l), C (n, k, l)
    * */
-  template <class ViewA, class ViewB, class ViewC,
+  template <typename ViewA, typename ViewB, typename ViewC,
             std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==3 && ViewC::rank()==3, std::nullptr_t> = nullptr>
   void matrix_matrix_product(const ViewA& A,
                              const ViewB& B,
@@ -348,6 +413,7 @@ namespace Impl {
     blas_handle.create();
     matrix_matrix_product(blas_handle, A, B, C, _transa, _transb, alpha, beta);
     blas_handle.destroy();
+    cudaDeviceSynchronize();
   }
 
   /*
@@ -356,9 +422,9 @@ namespace Impl {
    * A (n, m, l), B (m, l), C (n, l)
    * C = A * B
    * */
-  template <class ViewA, class ViewB, class ViewC,
+  template <typename ViewA, typename ViewB, typename ViewC,
             std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==2 && ViewC::rank()==2, std::nullptr_t> = nullptr>
-  void matrix_vector_product(const blasHandle_t& blas_handle,
+  void matrix_vector_product(blasHandle_t& blas_handle,
                              const ViewA& A,
                              const ViewB& B,
                              ViewC& C,
@@ -375,27 +441,55 @@ namespace Impl {
     const auto Bk = B.extent(0);
     assert(Ak == Bk);
     
-    using value_type = ViewA::value_type; 
+    using value_type = typename ViewA::value_type; 
     const value_type beta = 0;
-    auto status = gemmStridedBatched(blas_handle.handle_,
-                                     transa,
-                                     CUBLAS_OP_N,
-                                     Cm,
-                                     1,
-                                     Ak,
-                                     &alpha,
-                                     A.data_handle(),
-                                     A.extent(0),
-                                     A.extent(0) * A.extent(1),
-                                     B.data_handle(),
-                                     B.extent(0),
-                                     B.extent(0),
-                                     &beta,
-                                     C.data_handle(),
-                                     C.extent(0),
-                                     C.extent(0),
-                                     C.extent(1)
-                                    );
+
+    #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      blas_handle.q_.submit([&](sycl::handler &cgh) {
+        cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+          cublasSetStream(blas_handle.handle_, h.get_native_queue<sycl::backend::cuda>());
+          auto status = gemmStridedBatched(blas_handle.handle_,
+                                           transa,
+                                           CUBLAS_OP_N,
+                                           Cm,
+                                           1,
+                                           Ak,
+                                           &alpha,
+                                           A.data_handle(),
+                                           A.extent(0),
+                                           A.extent(0) * A.extent(1),
+                                           B.data_handle(),
+                                           B.extent(0),
+                                           B.extent(0),
+                                           &beta,
+                                           C.data_handle(),
+                                           C.extent(0),
+                                           C.extent(0),
+                                           C.extent(1)
+                                          );
+        });
+      });
+    #else
+      auto status = gemmStridedBatched(blas_handle.handle_,
+                                       transa,
+                                       CUBLAS_OP_N,
+                                       Cm,
+                                       1,
+                                       Ak,
+                                       &alpha,
+                                       A.data_handle(),
+                                       A.extent(0),
+                                       A.extent(0) * A.extent(1),
+                                       B.data_handle(),
+                                       B.extent(0),
+                                       B.extent(0),
+                                       &beta,
+                                       C.data_handle(),
+                                       C.extent(0),
+                                       C.extent(0),
+                                       C.extent(1)
+                                      );
+    #endif
   }
 
   /*
@@ -404,7 +498,7 @@ namespace Impl {
    * A (n, m, l), B (m, l), C (n, l)
    * C = A * B
    * */
-  template <class ViewA, class ViewB, class ViewC,
+  template <typename ViewA, typename ViewB, typename ViewC,
             std::enable_if_t<ViewA::rank()==3 && ViewB::rank()==2 && ViewC::rank()==2, std::nullptr_t> = nullptr>
   void matrix_vector_product(const ViewA& A,
                              const ViewB& B,
@@ -416,6 +510,7 @@ namespace Impl {
     blas_handle.create();
     matrix_vector_product(blas_handle, A, B, C, _transa, alpha);
     blas_handle.destroy();
+    cudaDeviceSynchronize();
   }
 
   /*
@@ -425,13 +520,13 @@ namespace Impl {
    * v (m, l)
    * w (m, m, l)
    * */
-  template <class Handle, class MatrixView, class VectorView,
+  template <typename Handle, typename MatrixView, typename VectorView,
             std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
-  void eig(const Handle& syevj_handle, MatrixView& a, VectorView& v) {
+  void eig(Handle& syevj_handle, MatrixView& a, VectorView& v) {
     static_assert( std::is_same_v<typename MatrixView::value_type, typename VectorView::value_type> );
     static_assert( std::is_same_v<typename MatrixView::layout_type, typename VectorView::layout_type> );
   
-    using value_type = MatrixView::value_type;
+    using value_type = typename MatrixView::value_type;
     assert(a.extent(0) == v.extent(0));
     assert(a.extent(0) == a.extent(1)); // Square array
     assert(a.extent(2) == v.extent(1)); // batch size
@@ -439,32 +534,51 @@ namespace Impl {
     const int batchSize = v.extent(1);
     value_type* workspace_data = (value_type *)thrust::raw_pointer_cast(syevj_handle.workspace_.data());
     int* info_data = (int *)thrust::raw_pointer_cast(syevj_handle.info_.data());
-  
-    auto status = syevjBatched(
-                   syevj_handle.handle_,
-                   syevj_handle.jobz_,
-                   syevj_handle.uplo_,
-                   a.extent(0), a.data_handle(),
-                   v.extent(0), v.data_handle(),
-                   workspace_data, syevj_handle.workspace_.size(),
-                   info_data,
-                   syevj_handle.params_,
-                   batchSize
-                  );
-    cudaDeviceSynchronize();
+
+    #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      syevj_handle.q_.submit([&](sycl::handler &cgh) {
+        cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+          cusolverDnSetStream(syevj_handle.handle_, h.get_native_queue<sycl::backend::cuda>());
+          auto status = syevjBatched(
+                    syevj_handle.handle_,
+                    syevj_handle.jobz_,
+                    syevj_handle.uplo_,
+                    a.extent(0), a.data_handle(),
+                    v.extent(0), v.data_handle(),
+                    workspace_data, syevj_handle.workspace_.size(),
+                    info_data,
+                    syevj_handle.params_,
+                    batchSize
+                    );
+         });
+      });
+    #else
+      auto status = syevjBatched(
+                    syevj_handle.handle_,
+                    syevj_handle.jobz_,
+                    syevj_handle.uplo_,
+                    a.extent(0), a.data_handle(),
+                    v.extent(0), v.data_handle(),
+                    workspace_data, syevj_handle.workspace_.size(),
+                    info_data,
+                    syevj_handle.params_,
+                    batchSize
+                    );
+    #endif
   }
 
-  template <class MatrixView, class VectorView,
+  template <typename MatrixView, typename VectorView,
             std::enable_if_t<MatrixView::rank()==3 && VectorView::rank()==2, std::nullptr_t> = nullptr>
   void eig(MatrixView& a, VectorView& v) {
     static_assert( std::is_same_v<typename MatrixView::value_type, typename VectorView::value_type> );
     static_assert( std::is_same_v<typename MatrixView::layout_type, typename VectorView::layout_type> );
 
-    using value_type = MatrixView::value_type;
+    using value_type = typename MatrixView::value_type;
     Impl::syevjHandle_t<value_type> syevj_handle;
     syevj_handle.create(a, v);
     eig(syevj_handle, a, v);
     syevj_handle.destroy();
+    cudaDeviceSynchronize();
   }
 
   // 2D transpose
@@ -473,12 +587,12 @@ namespace Impl {
   void transpose(const blasHandle_t& blas_handle, const InputView& in, OutputView& out) {
     static_assert( std::is_same_v<typename InputView::value_type, typename OutputView::value_type> );
     static_assert( std::is_same_v<typename InputView::layout_type, typename OutputView::layout_type> );
-    static_assert( std::is_same_v<typename InputView::layout_type, stdex::layout_left> );
+    static_assert( std::is_same_v<typename InputView::layout_type, std::layout_left> );
 
     assert( in.extent(0) == out.extent(1) );
     assert( in.extent(1) == out.extent(0) );
 
-    using value_type = InputView::value_type;
+    using value_type = typename InputView::value_type;
     constexpr value_type alpha = 1;
     constexpr value_type beta = 0;
 
@@ -507,6 +621,7 @@ namespace Impl {
     blas_handle.create();
     transpose(blas_handle, in, out);
     blas_handle.destroy();
+    cudaDeviceSynchronize();
   }
 };
 

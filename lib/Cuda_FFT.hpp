@@ -1,5 +1,5 @@
-#ifndef __CUDA_FFT_HPP__
-#define __CUDA_FFT_HPP__
+#ifndef CUDA_FFT_HPP
+#define CUDA_FFT_HPP
 
 /*
  * Simple wrapper for FFT class (only 2D FFT implemented now)
@@ -12,6 +12,9 @@
 #include <type_traits>
 #include <experimental/mdspan>
 #include "Cuda_Helper.hpp"
+#if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+#include <sycl/sycl.hpp>
+#endif
 
 namespace stdex = std::experimental;
 
@@ -43,6 +46,10 @@ namespace Impl {
 
       // Normalization coefficient
       RealType normcoeff_;
+
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+      sycl::queue q_;
+      #endif
 
     public:
       using array_layout = LayoutPolicy;
@@ -79,6 +86,18 @@ namespace Impl {
     int nx1h() {return nx1h_;}
     int nx2h() {return nx2h_;}
     int nb_batches() {return nb_batches_;}
+
+    template <typename QueueType>
+    void set_stream(QueueType& queue) {
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        // SYCL backend
+        q_ = queue;
+      #else
+        // CUDA backend
+        cufftSetStream(&forward_plan_);
+        cufftSetStream(&backward_plan_);
+      #endif
+    }
 
     private:
     void init() {
@@ -163,30 +182,74 @@ namespace Impl {
     private:
     template < template<typename> class Complex >
     inline void rfft2_(float* dptr_in, Complex<float> *dptr_out) {
-      cufftExecR2C(forward_plan_, 
-                   reinterpret_cast<float *>(dptr_in), 
-                   reinterpret_cast<cuComplex *>(dptr_out));
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        q_.submit([&](sycl::handler &cgh) {
+          cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+            cufftSetStream(forward_plan_, h.get_native_queue<sycl::backend::cuda>());
+            cufftExecR2C(forward_plan_, 
+              reinterpret_cast<float *>(dptr_in), 
+              reinterpret_cast<cuComplex *>(dptr_out));
+          });
+        });
+      #else
+        cufftExecR2C(forward_plan_, 
+                    reinterpret_cast<float *>(dptr_in), 
+                    reinterpret_cast<cuComplex *>(dptr_out));
+      #endif
     }
 
     template < template<typename> class Complex >
     inline void rfft2_(double* dptr_in, Complex<double>* dptr_out) {
-      cufftExecD2Z(forward_plan_, 
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        q_.submit([&](sycl::handler &cgh) {
+          cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+            cufftSetStream(forward_plan_, h.get_native_queue<sycl::backend::cuda>());
+            cufftExecD2Z(forward_plan_, 
                    reinterpret_cast<double *>(dptr_in), 
                    reinterpret_cast<cuDoubleComplex *>(dptr_out));
+          });
+        });
+      #else
+        cufftExecD2Z(forward_plan_, 
+                   reinterpret_cast<double *>(dptr_in), 
+                   reinterpret_cast<cuDoubleComplex *>(dptr_out));
+      #endif
     }
 
     template < template<typename> class Complex >
     inline void irfft2_(Complex<float>* dptr_in, float* dptr_out) {
-      cufftExecC2R(backward_plan_, 
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        q_.submit([&](sycl::handler &cgh) {
+          cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+            cufftSetStream(backward_plan_, h.get_native_queue<sycl::backend::cuda>());
+            cufftExecC2R(backward_plan_, 
                    reinterpret_cast<cuComplex *>(dptr_in), 
                    reinterpret_cast<float *>(dptr_out));
+          });
+        });
+      #else
+        cufftExecC2R(backward_plan_, 
+                   reinterpret_cast<cuComplex *>(dptr_in), 
+                   reinterpret_cast<float *>(dptr_out));
+      #endif
     }
 
     template < template<typename> class Complex >
     inline void irfft2_(Complex<double>* dptr_in, double* dptr_out) {
-      cufftExecZ2D(backward_plan_, 
+      #if defined(__HIPSYCL__) || defined(__OPENSYCL__)
+        q_.submit([&](sycl::handler &cgh) {
+          cgh.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle &h) {
+            cufftSetStream(backward_plan_, h.get_native_queue<sycl::backend::cuda>());
+            cufftExecZ2D(backward_plan_, 
                    reinterpret_cast<cuDoubleComplex *>(dptr_in), 
                    reinterpret_cast<double *>(dptr_out));
+          });
+        });
+      #else
+        cufftExecZ2D(backward_plan_, 
+                   reinterpret_cast<cuDoubleComplex *>(dptr_in), 
+                   reinterpret_cast<double *>(dptr_out));
+      #endif
     }
   };
 };

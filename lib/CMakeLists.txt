@@ -1,6 +1,8 @@
 add_library(math_lib INTERFACE)
 if(PROGRAMMING_MODEL STREQUAL "STDPAR")
     add_subdirectory(stdpar)
+elseif(PROGRAMMING_MODEL STREQUAL "SYCL")
+    add_subdirectory(sycl)
 elseif((PROGRAMMING_MODEL STREQUAL "EXECUTORS") OR (PROGRAMMING_MODEL STREQUAL "THRUST"))
     add_subdirectory(executors)
 else()

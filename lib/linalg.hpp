@@ -7,6 +7,8 @@
   #include "cuda_linalg.hpp"
 #elif defined(__HIPCC__)
   #include "hip_linalg.hpp"
+//#elif defined(__HIPCC__) // [TO DO] Add sycl backend
+//  #include "sycl_linalg.hpp"
 #else
   #include "openmp_linalg.hpp"
 #endif
