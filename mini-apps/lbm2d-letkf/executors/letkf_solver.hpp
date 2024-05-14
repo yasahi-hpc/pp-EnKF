@@ -116,6 +116,72 @@ stdexec::sender auto axpy_sender(Sender&& sender,
     );
 }
 
+template <class Sender,
+          class Scheduler,
+          class InoutView,
+          class OutputView,
+          std::enable_if_t<InoutView::rank()==3 && OutputView::rank()==3, std::nullptr_t> = nullptr>
+stdexec::sender auto axpy_mean_sender(Sender&& sender,
+                                      Scheduler&& scheduler,
+                                      const InoutView& x,
+                                      OutputView& mean,
+                                      InoutView& z,
+                                      int axis,
+                                      const typename InoutView::value_type beta=1,
+                                      const typename InoutView::value_type alpha=1) {
+  // 3D -> 3D (keepdims = true)
+  int reduce_dim = axis==-1 ? InoutView::rank()-1 : axis;
+  assert(reduce_dim < InoutView::rank());
+  assert(out.extent(reduce_dim) == 1);
+  const std::size_t reduce_size = x.extent(reduce_dim);
+  const std::size_t n = x.size() / reduce_size;
+  const auto n0 = (reduce_dim==0) ? x.extent(1) : x.extent(0);
+  const auto n1 = n / n0;
+
+  using value_type = InoutView::value_type;
+
+  return sender |
+    exec::on(scheduler, stdexec::bulk(n,
+      [=] MDSPAN_FORCE_INLINE_FUNCTION (const int idx) {
+        value_type sum = 0;
+        const int i0 = idx%n0;
+        const int i1 = idx/n0;
+        for(int ir=0; ir < reduce_size; ir++) {
+          if(reduce_dim == 0) {
+            auto sub_x = std::submdspan(x, ir, std::full_extent, std::full_extent);
+            sum += sub_x(i0, i1);
+          } else if(reduce_dim == 1) {
+            auto sub_x = std::submdspan(x, std::full_extent, ir, std::full_extent);
+            sum += sub_x(i0, i1);
+          } else {
+            auto sub_x = std::submdspan(x, std::full_extent, std::full_extent, ir);
+            sum += sub_x(i0, i1);
+          }
+        }
+
+        if(reduce_dim == 0) {
+          mean(0, i0, i1) = sum / static_cast<value_type>(reduce_size);
+          auto tmp_mean = beta * mean(0, i0, i1);
+          for(int ir=0; ir < reduce_size; ir++) {
+            z(ir, i0, i1) = alpha * x(ir, i0, i1) + tmp_mean;
+          }
+        } else if(reduce_dim == 1) {
+          mean(i0, 0, i1) = sum / static_cast<value_type>(reduce_size);
+          auto tmp_mean = beta * mean(i0, 0, i1);
+          for(int ir=0; ir < reduce_size; ir++) {
+            z(i0, ir, i1) = alpha * x(i0, ir, i1) + tmp_mean;
+          }
+        } else {
+          mean(i0, i1, 0) = sum / static_cast<value_type>(reduce_size);
+          auto tmp_mean = beta * mean(i0, i1, 0);
+          for(int ir=0; ir < reduce_size; ir++) {
+            z(i0, i1, ir) = alpha * x(i0, i1, ir) + tmp_mean;
+          }
+        }
+      })
+    );
+}
+
 template <class Sender, class Scheduler, class ViewType>
 stdexec::sender auto deep_copy_sender(Sender&& sender, Scheduler&& scheduler, const ViewType& in, ViewType& out) {
   assert(in.extents() == out.extents());
@@ -257,11 +323,17 @@ public:
     auto I = I_.mdspan();
     auto Q = Q_.mdspan();
 
+    /*
     auto _meanX_sender = mean_sender(stdexec::just(), scheduler, X, x_mean, 1);
     auto _subtractXmean_sender = axpy_sender(_meanX_sender, scheduler, X, x_mean, dX, -1);
     auto _meanY_sender = mean_sender(_subtractXmean_sender, scheduler, Y, y_mean, 1);
     auto _subtractYmean_sender = axpy_sender(_meanY_sender, scheduler, Y, y_mean, dY, -1);
     auto _deep_copy_I2Q_sender = deep_copy_sender(_subtractYmean_sender, scheduler, I, Q);
+    */
+
+    auto _subtract_meanX_sender = axpy_mean_sender(stdexec::just(), scheduler, X, x_mean, dX, 1, -1);
+    auto _subtract_meanY_sender = axpy_mean_sender(_subtract_meanX_sender, scheduler, Y, y_mean, dY, 1, -1);
+    auto _deep_copy_I2Q_sender = deep_copy_sender(_subtract_meanY_sender, scheduler, I, Q);
 
     // Q = (Ne-1)I/beta + dY^T * rR * dY
     auto rR = rR_.mdspan(); // (n_obs, n_obs, n_batch)
