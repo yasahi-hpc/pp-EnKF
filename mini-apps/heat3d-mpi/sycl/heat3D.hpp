@@ -160,19 +160,18 @@ void solve(sycl::queue& q,
       // Overlapping inner update and communications
       timers[Heat]->begin();
       
-      q.submit([&](sycl::handler& cgh) {
+      auto e = q.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(
           nd_range, 
           Heat3D_functor(conf, x_mask, y_mask, z_mask, u, un)
         );
       });
       comm.commP2P();
-      q.wait();
+      e.wait();
       timers[Heat]->end();
 
       timers[HaloUnpack]->begin();
       async_boundaryUpdate_all(q, conf, comm, un);
-      //q.wait();
       std::swap(u, un);
       timers[HaloUnpack]->end();
 

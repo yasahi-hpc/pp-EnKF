@@ -30,7 +30,11 @@ int main(int argc, char* argv[]) {
   Config conf(nx, ny, nz, parser.nbiter_, parser.freq_diag_);
 
   // The default device selector will select the most performant device.
-  auto selector = sycl::gpu_selector_v;
+  #if defined(ENABLE_OPENMP)
+    auto selector = sycl::cpu_selector_v;
+  #else
+    auto selector = sycl::gpu_selector_v;
+  #endif
 
   try {
     sycl::queue q(selector, exception_handler);
